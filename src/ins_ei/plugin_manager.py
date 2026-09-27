@@ -133,6 +133,44 @@ class PluginManager:
         return self._read_manifest(target)
 
 
+class ManagedPluginUpdate:
+    """Coordinates package replacement with a running INS-EI Runtime."""
+
+    def __init__(self, manager: PluginManager) -> None:
+        self.manager = manager
+
+    def apply_directory(self, runtime, plugin_id: str, package_dir: str | Path,
+                        expected_sha256: str | None = None) -> InstallResult:
+        affected = [
+            (instance_id, managed)
+            for instance_id, managed in runtime.plugins.items()
+            if runtime.instance_plugin_ids.get(instance_id) == plugin_id
+        ]
+
+        for _, managed in affected:
+            managed.plugin.stop()
+
+        try:
+            result = self.manager.install_from_directory(package_dir, expected_sha256)
+            runtime.reload_plugin_type(plugin_id)
+            for instance_id, _ in affected:
+                runtime.start_instance(instance_id)
+                runtime.collect_instance(instance_id)
+                status = runtime.plugins[instance_id].status
+                if str(status) not in {"RUNNING", "PluginStatus.RUNNING"}:
+                    raise RuntimeError(f"PLUGIN_POST_UPDATE_HEALTH:{instance_id}:{status}")
+            return result
+        except Exception:
+            try:
+                self.manager.rollback(plugin_id)
+                runtime.reload_plugin_type(plugin_id)
+                for instance_id, _ in affected:
+                    runtime.start_instance(instance_id)
+            except Exception:
+                pass
+            raise
+
+
 class RemoteCatalog:
     """Parser for the server-side plugin catalog contract."""
 
