@@ -59,7 +59,12 @@ def main() -> None:
             run_setup(args.host, args.port, args.plugins, args.data)
             return
 
-    runtime = build_runtime(str(requested_site), args.plugins, args.data)
+    try:
+        runtime = build_runtime(str(requested_site), args.plugins, args.data)
+    except Exception:
+        logging.exception("Stored Site configuration is invalid; returning to Setup Wizard")
+        run_setup(args.host, args.port, args.plugins, args.data)
+        return
     stop = threading.Event()
     worker = threading.Thread(
         target=_background_loop,
