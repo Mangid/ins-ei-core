@@ -15,6 +15,10 @@ class StateStore:
             for point in points:
                 self._points[(point.component_id, point.point)] = point
 
+    def get(self, component_id: str, point: str) -> Point | None:
+        with self._lock:
+            return self._points.get((component_id, point))
+
     def snapshot(self) -> list[Point]:
         with self._lock:
             return list(self._points.values())
