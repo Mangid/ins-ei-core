@@ -5,7 +5,7 @@ from typing import Any, Callable
 from ins_ei.config import SiteConfig
 from ins_ei.site_graph import SiteGraph
 from ins_ei.strategy import StrategyEngine, StrategyModule
-from ins_ei.strategies import DhwMinimumStrategy, ThermalSurplusStorageStrategy
+from ins_ei.strategies import DhwMinimumStrategy, ThermalSurplusStorageStrategy, BatteryReserveStrategy
 
 
 StrategyFactory = Callable[[dict[str, Any], SiteGraph], StrategyModule]
@@ -63,9 +63,22 @@ def build_thermal_surplus_storage(config: dict[str, Any], graph: SiteGraph) -> T
     )
 
 
+def build_battery_reserve(config: dict[str, Any], graph: SiteGraph) -> BatteryReserveStrategy:
+    battery = str(config["battery_component"])
+    _require_component(graph, battery, "BATTERY")
+    minimum = float(config["minimum_soc_percent"])
+    if not 0 <= minimum <= 100:
+        raise ValueError("STRATEGY_BATTERY_RESERVE_RANGE")
+    return BatteryReserveStrategy(
+        battery_component=battery,
+        minimum_soc_percent=minimum,
+    )
+
+
 STRATEGY_FACTORIES: dict[str, StrategyFactory] = {
     "dhw_minimum": build_dhw_minimum,
     "thermal_surplus_storage": build_thermal_surplus_storage,
+    "battery_reserve": build_battery_reserve,
 }
 
 
