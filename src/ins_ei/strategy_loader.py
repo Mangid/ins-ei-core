@@ -5,7 +5,7 @@ from typing import Any, Callable
 from ins_ei.config import SiteConfig
 from ins_ei.site_graph import SiteGraph
 from ins_ei.strategy import StrategyEngine, StrategyModule
-from ins_ei.strategies import DhwMinimumStrategy
+from ins_ei.strategies import DhwMinimumStrategy, ThermalSurplusStorageStrategy
 
 
 StrategyFactory = Callable[[dict[str, Any], SiteGraph], StrategyModule]
@@ -37,8 +37,35 @@ def build_dhw_minimum(config: dict[str, Any], graph: SiteGraph) -> DhwMinimumStr
     )
 
 
+def build_thermal_surplus_storage(config: dict[str, Any], graph: SiteGraph) -> ThermalSurplusStorageStrategy:
+    grid = str(config["grid_component"])
+    storage = str(config["storage_component"])
+    heater = str(config["power_to_heat_component"])
+
+    _require_component(graph, grid, "GRID")
+    _require_component(graph, storage)
+    _require_component(graph, heater, "POWER_TO_HEAT")
+
+    if heater not in {c.id for c in graph.targets(grid, "SUPPLIES")}:
+        raise ValueError(f"STRATEGY_GRID_NOT_SUPPLYING_P2H:{grid}:{heater}")
+    if storage not in {c.id for c in graph.targets(heater, "HEATS")}:
+        raise ValueError(f"STRATEGY_P2H_NOT_HEATING_STORAGE:{heater}:{storage}")
+
+    return ThermalSurplusStorageStrategy(
+        grid_component=grid,
+        storage_component=storage,
+        temperature_point=str(config.get("temperature_point", "thermal.temperature_upper")),
+        max_temperature_c=float(config["max_temperature_c"]),
+        power_to_heat_component=heater,
+        max_power_w=float(config["max_power_w"]),
+        reserve_export_w=float(config.get("reserve_export_w", 100)),
+        minimum_power_w=float(config.get("minimum_power_w", 100)),
+    )
+
+
 STRATEGY_FACTORIES: dict[str, StrategyFactory] = {
     "dhw_minimum": build_dhw_minimum,
+    "thermal_surplus_storage": build_thermal_surplus_storage,
 }
 
 
