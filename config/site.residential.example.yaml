@@ -1,0 +1,54 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: residential-reference
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: oekofen_main
+    plugin: oekofen
+    config:
+      host: 192.0.2.10
+      password: CHANGE_ME
+      components:
+        boiler: pellet_boiler
+        buffer: buffer
+        dhw: dhw
+        weather: weather
+  - id: mypv_main
+    plugin: mypv
+    config:
+      host: 192.0.2.20
+      component_id: power_to_heat
+  - id: grid_meter
+    plugin: shrdzm
+    config:
+      host: 192.0.2.30
+      component_id: grid
+
+components:
+  - {id: grid, kind: GRID, provider: grid_meter}
+  - {id: pellet_boiler, kind: HEAT_GENERATOR, provider: oekofen_main}
+  - {id: buffer, kind: BUFFER, provider: oekofen_main, properties: {volume_l: 800, max_temperature_c: 75}}
+  - {id: dhw, kind: DHW, provider: oekofen_main}
+  - {id: power_to_heat, kind: POWER_TO_HEAT, provider: mypv_main, properties: {nominal_power_kw: 9}}
+  - {id: weather, kind: WEATHER, provider: oekofen_main}
+
+relations:
+  - {from: pellet_boiler, to: buffer, type: HEATS}
+  - {from: pellet_boiler, to: dhw, type: HEATS}
+  - {from: power_to_heat, to: buffer, type: HEATS}
+  - {from: grid, to: power_to_heat, type: SUPPLIES}
+
+constraints:
+  - {id: buffer_max, type: MAX_VALUE, target: buffer.thermal.temperature, value: 75, unit: "°C"}
+  - {id: p2h_max, type: MAX_VALUE, target: power_to_heat.power.electrical, value: 9000, unit: W}
+
+apps:
+  heating: {enabled: true}
+  energy: {enabled: true}
+
+strategy:
+  modules: []
+
+site_rules: []
