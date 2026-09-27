@@ -18,11 +18,27 @@ class PluginInstanceConfig(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
 
 
+class PortConfig(BaseModel):
+    id: str
+    type: str
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class SensorPositionConfig(BaseModel):
+    id: str
+    point: str | None = None
+    position: float | None = None
+    port: str | None = None
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
 class ComponentConfig(BaseModel):
     id: str
     kind: str
     provider: str | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
+    ports: list[PortConfig] = Field(default_factory=list)
+    sensors: list[SensorPositionConfig] = Field(default_factory=list)
 
 
 class SiteConfig(BaseModel):
@@ -31,6 +47,7 @@ class SiteConfig(BaseModel):
     plugin_instances: list[PluginInstanceConfig] = Field(default_factory=list)
     components: list[ComponentConfig] = Field(default_factory=list)
     relations: list[dict[str, Any]] = Field(default_factory=list)
+    connections: list[dict[str, Any]] = Field(default_factory=list)
     constraints: list[dict[str, Any]] = Field(default_factory=list)
     apps: dict[str, Any] = Field(default_factory=dict)
     strategy: dict[str, Any] = Field(default_factory=dict)
