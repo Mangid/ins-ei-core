@@ -15,6 +15,8 @@ ALLOWED_RELATIONS = {
     "CONNECTED_TO",
 }
 
+ALLOWED_PORT_TYPES = {"HYDRAULIC", "HYDRAULIC_SUPPLY", "HYDRAULIC_RETURN", "ELECTRICAL", "DATA"}
+
 ALLOWED_COMPONENT_KINDS = {
     "GRID",
     "PV",
@@ -31,6 +33,9 @@ ALLOWED_COMPONENT_KINDS = {
     "FORECAST",
     "WEATHER",
     "HEATING_CIRCUIT",
+    "MIXER",
+    "HYDRAULIC_NODE",
+    "HEAT_NETWORK",
 }
 
 
@@ -39,6 +44,15 @@ class Relation:
     source: str
     target: str
     type: str
+
+
+@dataclass(frozen=True)
+class Connection:
+    source_component: str
+    source_port: str
+    target_component: str
+    target_port: str
+    medium: str = "WATER"
 
 
 @dataclass(frozen=True)
@@ -63,6 +77,8 @@ class SiteGraph:
         self.components: dict[str, ComponentConfig] = {}
         self.relations: list[Relation] = []
         self.constraints: list[Constraint] = []
+        self.connections: list[Connection] = []
+        self.ports: dict[tuple[str, str], Any] = {}
         self._outgoing: dict[str, list[Relation]] = {}
         self._incoming: dict[str, list[Relation]] = {}
         self._build()
@@ -82,6 +98,19 @@ class SiteGraph:
             self.components[component.id] = component
             self._outgoing[component.id] = []
             self._incoming[component.id] = []
+            seen_ports: set[str] = set()
+            for port in component.ports:
+                if port.id in seen_ports:
+                    raise ValueError(f"SITE_DUPLICATE_PORT:{component.id}:{port.id}")
+                if port.type not in ALLOWED_PORT_TYPES:
+                    raise ValueError(f"SITE_PORT_TYPE_UNKNOWN:{component.id}:{port.type}")
+                seen_ports.add(port.id)
+                self.ports[(component.id, port.id)] = port
+            for sensor in component.sensors:
+                if sensor.position is not None and not 0.0 <= sensor.position <= 1.0:
+                    raise ValueError(f"SITE_SENSOR_POSITION_RANGE:{component.id}:{sensor.id}")
+                if sensor.port is not None and (component.id, sensor.port) not in self.ports:
+                    raise ValueError(f"SITE_SENSOR_PORT_UNKNOWN:{component.id}:{sensor.port}")
 
         for raw in self.site.relations:
             source = str(raw.get("from", ""))
@@ -97,6 +126,21 @@ class SiteGraph:
             self.relations.append(relation)
             self._outgoing[source].append(relation)
             self._incoming[target].append(relation)
+
+        for raw in self.site.connections:
+            source_component, source_port = self._parse_endpoint(str(raw.get("from", "")))
+            target_component, target_port = self._parse_endpoint(str(raw.get("to", "")))
+            if (source_component, source_port) not in self.ports:
+                raise ValueError(f"SITE_CONNECTION_SOURCE_UNKNOWN:{source_component}.{source_port}")
+            if (target_component, target_port) not in self.ports:
+                raise ValueError(f"SITE_CONNECTION_TARGET_UNKNOWN:{target_component}.{target_port}")
+            self.connections.append(Connection(
+                source_component=source_component,
+                source_port=source_port,
+                target_component=target_component,
+                target_port=target_port,
+                medium=str(raw.get("medium", "WATER")),
+            ))
 
         seen_constraints: set[str] = set()
         for raw in self.site.constraints:
@@ -120,6 +164,13 @@ class SiteGraph:
                 unit=raw.get("unit"),
                 raw=dict(raw),
             ))
+
+    @staticmethod
+    def _parse_endpoint(endpoint: str) -> tuple[str, str]:
+        if "." not in endpoint:
+            raise ValueError(f"SITE_CONNECTION_ENDPOINT_INVALID:{endpoint}")
+        component, port = endpoint.rsplit(".", 1)
+        return component, port
 
     def component(self, component_id: str) -> ComponentConfig:
         try:
@@ -160,6 +211,14 @@ class SiteGraph:
             "relations": [
                 {"from": r.source, "to": r.target, "type": r.type}
                 for r in self.relations
+            ],
+            "connections": [
+                {
+                    "from": f"{x.source_component}.{x.source_port}",
+                    "to": f"{x.target_component}.{x.target_port}",
+                    "medium": x.medium,
+                }
+                for x in self.connections
             ],
             "constraints": [
                 {
