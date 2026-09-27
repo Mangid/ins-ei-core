@@ -70,3 +70,9 @@
 
 ## ADR-020 — Forecast and market data are explicit time series
 **Accepted — 2026-09-27.** Future market and forecast data live in a dedicated TimeSeriesStore rather than StateStore. Every slot has timezone-aware start/end boundaries and no algorithm may assume a fixed one-hour resolution. Provider plugins normalize source data into canonical series; Strategies/Optimizer consume those series without provider knowledge.
+
+
+## ADR-021 — New sites learn before autonomous optimization
+**Accepted — 2026-09-27.** A newly commissioned INS-EI site starts from a validated SiteGraph, hard safety/technical constraints, required comfort boundaries, tariffs and explicitly permitted actions. Plant-specific optimal behavior is not assumed to be fully programmed at commissioning. The site progresses through COMMISSIONING, LEARNING, SHADOW_OPTIMIZATION, ASSISTED and capability-specific AUTONOMOUS operation while continuing to learn from historical outcomes.
+
+Autonomy is granted per capability/model rather than by one global site switch. Readiness is evidence-based, not merely time-based, and may regress when data quality or model accuracy deteriorates or the plant changes. Learned models may improve forecasts, efficiencies, demand/thermal behavior and optimization, but may never override hard Safety or Site constraints. Learning Models inform Strategy/Optimizer and never command device plugins directly.
