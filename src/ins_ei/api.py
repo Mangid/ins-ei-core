@@ -12,6 +12,15 @@ def create_app(runtime: Runtime) -> FastAPI:
     def health() -> dict:
         return runtime.health()
 
+    @app.get("/plugins")
+    def plugins() -> dict:
+        return {
+            "plugins": [
+                item.manifest.model_dump(mode="json")
+                for item in runtime.catalog.installed().values()
+            ]
+        }
+
     @app.get("/state")
     def state() -> dict:
         return {
