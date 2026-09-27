@@ -1,0 +1,33 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: demo-site
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: demo_heating
+    plugin: demo
+    config:
+      component_id: pellet_boiler
+      temperature_c: 67.5
+
+components:
+  - id: pellet_boiler
+    kind: HEAT_GENERATOR
+    provider: demo_heating
+    properties:
+      nominal_power_kw: 10
+
+relations: []
+constraints: []
+
+apps:
+  heating:
+    enabled: true
+  energy:
+    enabled: false
+
+strategy:
+  modules: []
+
+site_rules: []
