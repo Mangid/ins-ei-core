@@ -1,0 +1,27 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: grid-test
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: grid_meter
+    plugin: shrdzm
+    config:
+      host: 192.0.2.30
+      port: 502
+      unit_id: 1
+      component_id: grid
+
+components:
+  - id: grid
+    kind: GRID
+    provider: grid_meter
+
+relations: []
+constraints: []
+apps:
+  heating: {enabled: false}
+  energy: {enabled: true}
+strategy: {modules: []}
+site_rules: []
