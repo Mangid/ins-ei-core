@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 
 from .config import SiteConfig
 from .models import PluginHealth, PluginStatus
@@ -23,6 +24,8 @@ class ManagedPlugin:
     plugin: Plugin
     status: PluginStatus = PluginStatus.CONFIGURED
     error: str | None = None
+    last_successful_read_at: datetime | None = None
+    last_read_attempt_at: datetime | None = None
 
 
 class Runtime:
@@ -79,20 +82,25 @@ class Runtime:
         managed = self.plugins[instance_id]
         if managed.status not in {PluginStatus.RUNNING, PluginStatus.DEGRADED}:
             return
+        managed.last_read_attempt_at = datetime.now().astimezone()
         try:
             points = managed.plugin.read_points()
             self.state.ingest(points)
+            managed.last_successful_read_at = datetime.now().astimezone()
             health = managed.plugin.health()
             managed.status = health.status
             managed.error = None if health.status == PluginStatus.RUNNING else health.message
             log.info("plugin collected | instance=%s points=%d status=%s", instance_id, len(points), managed.status)
             self.metrics.inc("collect_success_total")
             self.metrics.inc("points_ingested_total", len(points))
+            self.metrics.set(f"plugin.{instance_id}.last_read_ok", 1)
+            self.metrics.set(f"plugin.{instance_id}.points_last_read", len(points))
         except Exception as exc:
             managed.status = PluginStatus.DEGRADED
             managed.error = str(exc)
             log.exception("plugin collect failed | instance=%s", instance_id)
             self.metrics.inc("collect_failed_total")
+            self.metrics.set(f"plugin.{instance_id}.last_read_ok", 0)
             self.audit.record("plugin.collect_failed", instance=instance_id, error=str(exc))
 
     def collect_once(self) -> None:
@@ -141,10 +149,24 @@ class Runtime:
         return self.last_decision
 
     def health(self) -> dict:
-        statuses = {
-            key: {"status": value.status, "error": value.error}
-            for key, value in self.plugins.items()
-        }
+        now = datetime.now().astimezone()
+        statuses = {}
+        for key, value in self.plugins.items():
+            read_age = (
+                max(0.0, (now - value.last_successful_read_at).total_seconds())
+                if value.last_successful_read_at else None
+            )
+            statuses[key] = {
+                "status": value.status,
+                "error": value.error,
+                "last_successful_read_at": (
+                    value.last_successful_read_at.isoformat()
+                    if value.last_successful_read_at else None
+                ),
+                "last_read_age_seconds": read_age,
+            }
+            if read_age is not None:
+                self.metrics.set(f"plugin.{key}.last_read_age_seconds", read_age)
         failed = any(v.status == PluginStatus.FAILED for v in self.plugins.values())
         degraded = any(v.status == PluginStatus.DEGRADED for v in self.plugins.values())
         overall = "FAILED" if failed else "DEGRADED" if degraded else "OK"
