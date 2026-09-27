@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from .config import SiteConfig
 from .models import PluginHealth, PluginStatus
 from .plugins.base import Plugin
-from .plugins.registry import create_plugin
+from .plugin_loader import PluginCatalog
 from .state import StateStore
 
 log = logging.getLogger("ins_ei.runtime")
@@ -20,14 +20,16 @@ class ManagedPlugin:
 
 
 class Runtime:
-    def __init__(self, site: SiteConfig) -> None:
+    def __init__(self, site: SiteConfig, plugin_dir: str = "plugins") -> None:
         self.site = site
         self.state = StateStore()
+        self.catalog = PluginCatalog(plugin_dir)
+        self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
-            plugin = create_plugin(cfg.plugin, cfg.id, cfg.config)
+            plugin = self.catalog.create(cfg.plugin, cfg.id, cfg.config)
             plugin.validate_config()
             self.plugins[cfg.id] = ManagedPlugin(plugin=plugin)
             log.info("plugin configured | instance=%s plugin=%s", cfg.id, cfg.plugin)
