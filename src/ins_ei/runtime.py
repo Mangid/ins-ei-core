@@ -8,6 +8,7 @@ from .models import PluginHealth, PluginStatus
 from .plugins.base import Plugin
 from .plugin_loader import PluginCatalog
 from .state import StateStore
+from .site_graph import SiteGraph
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -23,6 +24,7 @@ class Runtime:
     def __init__(self, site: SiteConfig, plugin_dir: str = "plugins") -> None:
         self.site = site
         self.state = StateStore()
+        self.graph = SiteGraph(site)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
