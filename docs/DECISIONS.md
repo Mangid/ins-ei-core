@@ -76,3 +76,13 @@
 **Accepted — 2026-09-27.** A newly commissioned INS-EI site starts from a validated SiteGraph, hard safety/technical constraints, required comfort boundaries, tariffs and explicitly permitted actions. Plant-specific optimal behavior is not assumed to be fully programmed at commissioning. The site progresses through COMMISSIONING, LEARNING, SHADOW_OPTIMIZATION, ASSISTED and capability-specific AUTONOMOUS operation while continuing to learn from historical outcomes.
 
 Autonomy is granted per capability/model rather than by one global site switch. Readiness is evidence-based, not merely time-based, and may regress when data quality or model accuracy deteriorates or the plant changes. Learned models may improve forecasts, efficiencies, demand/thermal behavior and optimization, but may never override hard Safety or Site constraints. Learning Models inform Strategy/Optimizer and never command device plugins directly.
+
+
+## ADR-022 — Savings are counterfactual, versioned and confidence-rated
+**Accepted — 2026-09-27.** INS-EI Value Accounting compares actual operation with a versioned counterfactual baseline representing likely operation without the optimization. Savings/value attribution must prevent double counting and distinguish measured/strongly derived value from modelled value. Historical calculations use the plant, tariff and model versions valid at the event time; later tariff/component changes do not rewrite historical economics.
+
+## ADR-023 — Seasonal behavior is learned as operating regimes, not fixed calendar seasons
+**Accepted — 2026-09-27.** INS-EI uses learned site-specific operating regimes and heating-demand behavior rather than fixed month-based summer/winter logic as the primary optimization model. Weather forecast, rolling temperatures, real heat demand, solar effects and historical outcomes inform regime probabilities and learned heating boundaries. Regime/seasonal learning informs Strategy/Optimizer but cannot override hard Safety or Site constraints.
+
+## ADR-024 — Plant, tariff and model changes are versioned dependencies
+**Accepted — 2026-09-27.** Component replacements, topology/configuration changes, tariff changes and sensor changes are recorded as time-bound versions/change events. Learning models declare dependencies on relevant plant/data/tariff context. A relevant change invalidates or reduces readiness only for affected models/capabilities; unrelated learned knowledge remains valid. Historical data is retained with the context under which it was produced.
