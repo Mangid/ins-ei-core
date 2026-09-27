@@ -4,14 +4,11 @@ name: ÖkoFEN
 version: 0.1.0
 kind: device
 entrypoint: ins_ei.plugins.oekofen:OekofenPlugin
-capabilities:
-  - heat_generator
-  - buffer
-  - dhw
-  - heating_circuit
-commands:
-  - heat_generator.set_enabled
-  - dhw.request_once
-permissions:
-  network: true
-  filesystem: false
+capabilities: [heat_generator, buffer, dhw, heating_circuit]
+commands: [heat_generator.set_enabled, dhw.request_once]
+config_schema:
+  fields:
+    - {id: host, label: IP / Host, type: text, required: true}
+    - {id: password, label: JSON Passwort, type: password, required: true}
+    - {id: port, label: Port, type: number, default: 4321}
+permissions: {network: true, filesystem: false}
