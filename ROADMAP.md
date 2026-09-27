@@ -5,11 +5,11 @@
 - [x] Define platform / app / plugin / site separation
 - [x] Home Assistant explicitly optional
 - [x] Customer-specific logic must not leak into Core
-- [ ] Define plugin manifest and lifecycle
-- [ ] Define canonical point/capability model
-- [ ] Define site model schema
-- [ ] Define strategy interface
-- [ ] Define configuration/version migration rules
+- [x] Define plugin manifest and lifecycle
+- [x] Define canonical point/capability model baseline
+- [x] Define site model schema baseline
+- [x] Define strategy interface
+- [ ] Define configuration/version migration rules (during first Core implementation)
 
 **Exit criterion:** We can explain exactly where any new feature belongs before implementing it.
 
