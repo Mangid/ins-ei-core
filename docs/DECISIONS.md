@@ -17,3 +17,13 @@
 
 ## ADR-006 — Encapsulate customer complexity
 **Accepted — 2026-09-27.** Customer behavior should primarily be expressed through topology, parameters and reusable strategies. Truly unique rules are isolated as small Site Rules; repeated Site Rules should become reusable capabilities.
+
+
+## ADR-007 — SiteGraph is topology, not strategy
+**Accepted — 2026-09-27.** INS-EI builds a validated SiteGraph from the site configuration at startup. The graph owns component identity, provider binding, physical/logical relations and technical constraints. It may be queried by Apps and Strategies, but it must not make economic, comfort or optimization decisions. This preserves the rule: the instance knows the plant; INS-EI Strategy knows what to do with it.
+
+## ADR-008 — Canonical directional grid flows
+**Accepted — 2026-09-27.** Vendor-specific signed grid power is normalized inside the meter plugin. Core and Strategy use separate non-negative `grid.import_power` and `grid.export_power` points. Vendor sign conventions remain diagnostics only.
+
+## ADR-009 — Plugins are discovered, not registered in Core
+**Accepted — 2026-09-27.** The Core discovers installed plugin manifests and dynamically loads declared entrypoints. Adding a device vendor must not require changing a static manufacturer registry in Core.
