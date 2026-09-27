@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from ins_ei.models import Point, Quality
 from ins_ei.site_graph import SiteGraph
 from ins_ei.state import StateStore
+from ins_ei.timeseries import TimeSeriesStore
 
 
 class Priority(IntEnum):
@@ -55,13 +56,35 @@ class Decision:
 
 
 class StrategyContext:
-    def __init__(self, graph: SiteGraph, state: StateStore, now: datetime | None = None) -> None:
+    def __init__(
+        self,
+        graph: SiteGraph,
+        state: StateStore,
+        timeseries: TimeSeriesStore | None = None,
+        now: datetime | None = None,
+    ) -> None:
         self.graph = graph
         self.state = state
+        self.timeseries = timeseries or TimeSeriesStore()
         self.now = now or datetime.now().astimezone()
 
     def point(self, component_id: str, point_name: str) -> Point | None:
         return self.state.get(component_id, point_name)
+
+    def current_slot(self, series: str):
+        slot = self.timeseries.current(series, self.now)
+        if slot is None or slot.quality != Quality.GOOD:
+            return None
+        return slot
+
+    def future_slots(self, series: str, hours: int):
+        from datetime import timedelta
+        return [
+            slot for slot in self.timeseries.window(
+                series, self.now, self.now + timedelta(hours=hours)
+            )
+            if slot.quality == Quality.GOOD
+        ]
 
     def good_value(self, component_id: str, point_name: str) -> Any | None:
         point = self.point(component_id, point_name)
