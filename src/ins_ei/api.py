@@ -12,6 +12,49 @@ def create_app(runtime: Runtime) -> FastAPI:
     def health() -> dict:
         return runtime.health()
 
+    @app.get("/safety")
+    def safety() -> dict:
+        state = runtime.safety.state()
+        return {
+            "emergency_stop": state.emergency_stop,
+            "reason": state.reason,
+            "changed_at": state.changed_at.isoformat(),
+        }
+
+    @app.post("/safety/emergency-stop")
+    def emergency_stop(reason: str = "manual emergency stop") -> dict:
+        state = runtime.safety.engage(reason)
+        runtime.metrics.inc("emergency_stop_engaged_total")
+        runtime.metrics.set("emergency_stop_active", 1)
+        runtime.audit.record("safety.emergency_stop_engaged", reason=state.reason)
+        return {"emergency_stop": True, "reason": state.reason}
+
+    @app.post("/safety/reset")
+    def safety_reset(reason: str = "manual reset") -> dict:
+        state = runtime.safety.release(reason)
+        runtime.metrics.inc("emergency_stop_reset_total")
+        runtime.metrics.set("emergency_stop_active", 0)
+        runtime.audit.record("safety.emergency_stop_reset", reason=reason)
+        return {"emergency_stop": False, "reason": state.reason}
+
+    @app.get("/metrics")
+    def metrics() -> dict:
+        return runtime.metrics.snapshot()
+
+    @app.get("/audit")
+    def audit(limit: int = 100) -> dict:
+        return {
+            "events": [
+                {
+                    "timestamp": e.timestamp,
+                    "event": e.event,
+                    "site": e.site,
+                    "data": e.data,
+                }
+                for e in runtime.audit.recent(min(max(limit, 1), 1000))
+            ]
+        }
+
     @app.post("/strategy/evaluate")
     def evaluate_strategy() -> dict:
         decision = runtime.evaluate_strategy()
