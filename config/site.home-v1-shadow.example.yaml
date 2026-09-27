@@ -1,0 +1,79 @@
+api_version: ins-ei.site/v1
+site:
+  id: home-v1-shadow
+  timezone: Europe/Vienna
+
+# First-install template for the user's real site.
+# Replace addresses/secrets locally before deployment; do not commit credentials.
+plugin_instances:
+  - id: oekofen_main
+    plugin: oekofen
+    config:
+      host: CHANGE_ME
+      password: CHANGE_ME
+      components:
+        boiler: pellet_boiler
+        buffer: buffer
+        dhw: dhw
+        weather: weather
+  - id: mypv_main
+    plugin: mypv
+    config:
+      host: CHANGE_ME
+      component_id: power_to_heat
+  - id: grid_meter
+    plugin: shrdzm
+    config:
+      host: CHANGE_ME
+      component_id: grid
+
+components:
+  - {id: grid, kind: GRID, provider: grid_meter}
+  - {id: pellet_boiler, kind: HEAT_GENERATOR, provider: oekofen_main}
+  - id: buffer
+    kind: BUFFER
+    provider: oekofen_main
+    properties: {volume_l: 800, max_temperature_c: 75}
+    sensors:
+      - {id: upper, point: thermal.temperature_upper, position: 0.25}
+      - {id: lower, point: thermal.temperature_lower, position: 0.75}
+  - {id: dhw, kind: DHW, provider: oekofen_main, properties: {volume_l: 500}}
+  - {id: power_to_heat, kind: POWER_TO_HEAT, provider: mypv_main, properties: {nominal_power_kw: 9}}
+  - {id: weather, kind: WEATHER, provider: oekofen_main}
+
+relations:
+  - {from: pellet_boiler, to: buffer, type: HEATS}
+  - {from: pellet_boiler, to: dhw, type: HEATS}
+  - {from: power_to_heat, to: buffer, type: HEATS}
+  - {from: grid, to: power_to_heat, type: SUPPLIES}
+
+connections: []
+
+constraints:
+  - {id: buffer_max, type: MAX_VALUE, target: buffer.thermal.temperature_upper, value: 75, unit: "°C"}
+
+apps:
+  heating: {enabled: true}
+  energy: {enabled: true}
+
+strategy:
+  modules:
+    - id: dhw_minimum
+      enabled: true
+      config:
+        dhw_component: dhw
+        minimum_c: 50
+        heat_source: pellet_boiler
+        command: dhw.request_once
+    - id: thermal_surplus_storage
+      enabled: true
+      config:
+        grid_component: grid
+        storage_component: buffer
+        temperature_point: thermal.temperature_upper
+        max_temperature_c: 75
+        power_to_heat_component: power_to_heat
+        max_power_w: 9000
+        reserve_export_w: 100
+
+site_rules: []
