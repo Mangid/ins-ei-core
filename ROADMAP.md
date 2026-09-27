@@ -63,3 +63,16 @@ TEST/PROD separation, fleet overview, version inventory, health checks, remote u
 - continuous learning during autonomous operation
 
 **Exit criterion:** INS-EI can demonstrate from historical evidence why a capability is considered ready for autonomous optimization, measure its prediction error, and safely return it to Shadow/Assisted operation when confidence deteriorates.
+
+
+## Cross-cutting learning extensions
+- Site/component lifecycle and configuration versioning
+- tariff versioning with valid-from/valid-until semantics
+- Learning Model dependency graph and targeted invalidation
+- Operating Regime / Seasonal Learning model
+- learned site-specific heating boundary and cold-spell context
+- Value Accounting with versioned counterfactual baselines
+- decision-level savings attribution and confidence
+- protection against double counting of overlapping value contributions
+
+These capabilities build on Historian/Outcome Tracking and must preserve the historical plant/tariff/model context for every calculation.
