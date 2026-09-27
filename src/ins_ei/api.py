@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Response
+from fastapi.responses import HTMLResponse
 
 from .runtime import Runtime
 from .site_view import build_site_view
 from .schema_renderer import render_svg
 from .outcomes import OutcomeExpectation
+from .webui import index_html
 
 
 def create_app(runtime: Runtime) -> FastAPI:
     app = FastAPI(title="INS-EI", version="0.1.0")
+
+    @app.get("/", response_class=HTMLResponse)
+    def index():
+        return index_html()
 
     @app.get("/health")
     def health() -> dict:
