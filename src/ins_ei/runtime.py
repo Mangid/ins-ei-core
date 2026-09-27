@@ -16,6 +16,7 @@ from .safety import SafetyController
 from .audit import AuditLog
 from .metrics import Metrics
 from .timeseries import TimeSeriesStore
+from .historian import Historian
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -30,7 +31,12 @@ class ManagedPlugin:
 
 
 class Runtime:
-    def __init__(self, site: SiteConfig, plugin_dir: str = "plugins") -> None:
+    def __init__(
+        self,
+        site: SiteConfig,
+        plugin_dir: str = "plugins",
+        historian_path: str | None = None,
+    ) -> None:
         self.site = site
         self.state = StateStore()
         self.graph = SiteGraph(site)
@@ -39,6 +45,11 @@ class Runtime:
         self.safety = SafetyController()
         self.metrics = Metrics()
         self.timeseries = TimeSeriesStore()
+        self.historian = Historian(
+            historian_path or f"data/{site.site.id}/historian.sqlite3"
+        )
+        self.context_version = "site-v1"
+        self.last_correlation_id = None
         self.audit = AuditLog(site.site.id)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
@@ -88,6 +99,7 @@ class Runtime:
         try:
             points = managed.plugin.read_points()
             self.state.ingest(points)
+            self.historian.record_points(self.site.site.id, points, self.context_version)
             managed.last_successful_read_at = datetime.now().astimezone()
             health = managed.plugin.health()
             managed.status = health.status
@@ -136,6 +148,13 @@ class Runtime:
             self.metrics.inc("strategy_blocked_emergency_stop_total")
         self.last_decision = self.strategy_engine.evaluate(
             StrategyContext(self.graph, self.state, self.timeseries)
+        )
+        self.last_correlation_id = self.historian.new_correlation_id()
+        self.historian.record_decision(
+            self.site.site.id,
+            self.last_decision,
+            self.last_correlation_id,
+            self.context_version,
         )
         self.audit.record(
             "strategy.decision",
