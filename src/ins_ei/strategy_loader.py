@@ -5,7 +5,7 @@ from typing import Any, Callable
 from ins_ei.config import SiteConfig
 from ins_ei.site_graph import SiteGraph
 from ins_ei.strategy import StrategyEngine, StrategyModule
-from ins_ei.strategies import DhwMinimumStrategy, ThermalSurplusStorageStrategy, BatteryReserveStrategy
+from ins_ei.strategies import DhwMinimumStrategy, ThermalSurplusStorageStrategy, BatteryReserveStrategy, DynamicBatteryChargeStrategy
 
 
 StrategyFactory = Callable[[dict[str, Any], SiteGraph], StrategyModule]
@@ -75,10 +75,31 @@ def build_battery_reserve(config: dict[str, Any], graph: SiteGraph) -> BatteryRe
     )
 
 
+def build_dynamic_battery_charge(config: dict[str, Any], graph: SiteGraph) -> DynamicBatteryChargeStrategy:
+    battery = str(config["battery_component"])
+    market = str(config["market_component"])
+    _require_component(graph, battery, "BATTERY")
+    _require_component(graph, market, "MARKET")
+
+    target_soc = float(config["target_soc_percent"])
+    if not 0 < target_soc <= 100:
+        raise ValueError("STRATEGY_BATTERY_TARGET_SOC_RANGE")
+
+    return DynamicBatteryChargeStrategy(
+        battery_component=battery,
+        market_component=market,
+        max_import_price_ct_kwh=float(config["max_import_price_ct_kwh"]),
+        target_soc_percent=target_soc,
+        max_charge_power_w=float(config["max_charge_power_w"]),
+        minimum_charge_power_w=float(config.get("minimum_charge_power_w", 100)),
+    )
+
+
 STRATEGY_FACTORIES: dict[str, StrategyFactory] = {
     "dhw_minimum": build_dhw_minimum,
     "thermal_surplus_storage": build_thermal_surplus_storage,
     "battery_reserve": build_battery_reserve,
+    "dynamic_battery_charge": build_dynamic_battery_charge,
 }
 
 
