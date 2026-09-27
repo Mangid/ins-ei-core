@@ -1,0 +1,36 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: mypv-test
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: mypv_main
+    plugin: mypv
+    config:
+      host: 192.0.2.20
+      port: 502
+      unit_id: 1
+      http_enabled: true
+      component_id: power_to_heat
+
+components:
+  - id: power_to_heat
+    kind: POWER_TO_HEAT
+    provider: mypv_main
+    properties:
+      nominal_power_kw: 9
+
+relations: []
+constraints:
+  - id: p2h_max
+    type: MAX_VALUE
+    target: power_to_heat.power.electrical
+    value: 9000
+    unit: W
+
+apps:
+  heating: {enabled: true}
+  energy: {enabled: true}
+strategy: {modules: []}
+site_rules: []
