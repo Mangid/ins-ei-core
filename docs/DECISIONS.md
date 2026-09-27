@@ -66,3 +66,7 @@
 
 ## ADR-019 — GUI renders the Site model; it does not reinterpret devices
 **Accepted — 2026-09-27.** The UI consumes a vendor-neutral Site View derived from SiteGraph and canonical StateStore data. Component presentation is selected by canonical component kind, never plugin/vendor identity. Future graphical editing writes validated Site configuration; the graphical layout itself is not a second source of plant truth.
+
+
+## ADR-020 — Forecast and market data are explicit time series
+**Accepted — 2026-09-27.** Future market and forecast data live in a dedicated TimeSeriesStore rather than StateStore. Every slot has timezone-aware start/end boundaries and no algorithm may assume a fixed one-hour resolution. Provider plugins normalize source data into canonical series; Strategies/Optimizer consume those series without provider knowledge.
