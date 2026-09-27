@@ -31,3 +31,7 @@
 
 ## ADR-010 — Strategies produce intents; dispatcher executes commands
 **Accepted — 2026-09-27.** Strategy modules never call plugins directly. They produce canonical intents. A separate Command Dispatcher resolves the target component through SiteGraph, resolves its provider/plugin instance, verifies that the plugin manifest explicitly declares the command, and only then invokes the plugin. This creates a mandatory validation boundary between decision logic and physical writes.
+
+
+## ADR-011 — Strategy behavior is configured by Site, not customer identity
+**Accepted — 2026-09-27.** Reusable Strategy modules are instantiated from the Site configuration and validated against SiteGraph. Site-specific thresholds, selected components and permitted canonical commands are parameters. Customer/site names must never select algorithm branches in reusable Strategy code.
