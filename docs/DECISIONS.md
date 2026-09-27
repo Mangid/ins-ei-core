@@ -62,3 +62,7 @@
 
 ## ADR-018 — Hydraulic schematics are machine-readable port topology
 **Accepted — 2026-09-27.** Detailed hydraulic installations are modeled with component ports, directed connections and sensor positions inside SiteGraph. Simple component-level relations remain valid for uncomplicated sites. The topology is the source of truth; future graphical schematics are rendered/edited views of it. INS-EI does not become a hydraulic simulator unless a future application explicitly requires such physics.
+
+
+## ADR-019 — GUI renders the Site model; it does not reinterpret devices
+**Accepted — 2026-09-27.** The UI consumes a vendor-neutral Site View derived from SiteGraph and canonical StateStore data. Component presentation is selected by canonical component kind, never plugin/vendor identity. Future graphical editing writes validated Site configuration; the graphical layout itself is not a second source of plant truth.
