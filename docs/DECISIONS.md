@@ -106,3 +106,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-029 — Outcome evidence automatically drives persisted readiness and autonomy regression
 **Accepted — 2026-09-27.** Outcome Tracking results tied to a Learning Model version are persisted as model evidence and automatically reassessed against that model's Readiness Policy. Model state and evidence survive runtime restarts. Sufficient evidence can promote LEARNING to READY; deterioration can move a previously READY model to DEGRADED and automatically downgrade dependent AUTONOMOUS capabilities to SHADOW. INVALIDATED models are not silently revalidated by ordinary evidence accumulation.
+
+
+## ADR-030 — TEST is mandatory before every PROD release
+**Accepted — 2026-09-28.** INS-EI development/integration testing runs on a dedicated TEST installation and separate Home Assistant App slug/data. A Core revision may enter the PROD App only after the documented release gate passes on TEST. Production customer/house installations are not development environments. Release identity is the exact tested Core Git SHA, persistent plant data is preserved across updates/rollback, and an INS-EI failure must remain isolated from Home Assistant/Supervisor operation.
