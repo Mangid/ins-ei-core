@@ -6,10 +6,13 @@ import threading
 import time
 
 import uvicorn
+from pathlib import Path
 
 from .api import create_app
 from .config import load_site
 from .runtime import Runtime
+from .bootstrap import run_setup
+from .setup_store import SetupStore
 
 
 def build_runtime(site_path: str, plugin_dir: str = "plugins", data_dir: str = "data") -> Runtime:
@@ -46,7 +49,17 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s | %(message)s",
     )
-    runtime = build_runtime(args.site, args.plugins, args.data)
+    requested_site = Path(args.site)
+    local_store = SetupStore(args.data)
+    if not requested_site.is_file():
+        if local_store.exists():
+            requested_site = local_store.site_path
+        else:
+            logging.info("No Site configuration found; starting INS-EI Setup Wizard")
+            run_setup(args.host, args.port, args.plugins, args.data)
+            return
+
+    runtime = build_runtime(str(requested_site), args.plugins, args.data)
     stop = threading.Event()
     worker = threading.Thread(
         target=_background_loop,
