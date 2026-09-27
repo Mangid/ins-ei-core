@@ -4,9 +4,10 @@ name: SHRDZM SMARTMETER
 version: 0.1.0
 kind: device
 entrypoint: ins_ei.plugins.shrdzm:ShrdzmPlugin
-capabilities:
-  - grid_meter
-  - electrical_telemetry
-permissions:
-  network: true
-  filesystem: false
+capabilities: [grid_meter, electrical_telemetry]
+config_schema:
+  fields:
+    - {id: host, label: IP / Host, type: text, required: true}
+    - {id: port, label: Modbus Port, type: number, default: 502}
+    - {id: unit_id, label: Unit ID, type: number, default: 1}
+permissions: {network: true, filesystem: false}
