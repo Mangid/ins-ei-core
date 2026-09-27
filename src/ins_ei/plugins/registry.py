@@ -3,10 +3,12 @@ from __future__ import annotations
 from ins_ei.plugins.base import Plugin
 from ins_ei.plugins.demo import DemoPlugin
 from ins_ei.plugins.oekofen import OekofenPlugin
+from ins_ei.plugins.mypv import MyPVPlugin
 
 PLUGIN_REGISTRY: dict[str, type[Plugin]] = {
     "demo": DemoPlugin,
     "oekofen": OekofenPlugin,
+    "mypv": MyPVPlugin,
 }
 
 
