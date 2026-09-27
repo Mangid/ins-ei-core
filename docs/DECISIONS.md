@@ -98,3 +98,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-027 — Model readiness is evidence-based and separate from autonomy
 **Accepted — 2026-09-27.** Learning Models have explicit versions, dependencies and lifecycle states (LEARNING, READY, DEGRADED, INVALIDATED). Readiness is assessed from observable outcomes, prediction error and operating-context coverage rather than elapsed time or sample count alone. READY never grants physical autonomy by itself; capability autonomy remains a separate gate combining model readiness with Safety, data health, Site constraints, proven plugin write capability and operator/site policy.
+
+
+## ADR-028 — Physical autonomy is capability-specific and default-deny
+**Accepted — 2026-09-27.** Physical execution requires a separate capability Autonomy Gate in addition to Strategy correctness and Safety. Capabilities operate independently in LEARNING, SHADOW, ASSISTED or AUTONOMOUS modes. Unknown/unconfigured capabilities default to LEARNING with writes denied. AUTONOMOUS execution additionally requires explicit physical-write permission and READY status for all configured required Learning Models. Model regression can downgrade only dependent capabilities to SHADOW without disabling unrelated control domains.
