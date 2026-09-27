@@ -9,4 +9,4 @@ services:
       - ./config:/app/config:ro
       - ./plugins:/app/plugins:ro
       - ./data:/app/data
-    command: ["ins-ei", "--site", "/app/config/site.local.yaml", "--host", "0.0.0.0", "--port", "8080"]
+    command: ["ins-ei", "--site", "/app/config/site.local.yaml", "--plugins", "/app/plugins", "--data", "/app/data", "--interval", "10", "--host", "0.0.0.0", "--port", "8080"]
