@@ -55,6 +55,10 @@ _DEFINITIONS = [
     PointDefinition("thermal.target_supply_temperature", "°C", float, 300, "Target supply/flow temperature."),
     PointDefinition("thermal.flame_temperature", "°C", float, 60, "Combustion/flame temperature."),
 
+    # Market: current tariff/price state. Slot-aware forecasts follow separately.
+    PointDefinition("market.import_price", "ct/kWh", float, 3900, "Current gross electricity import price."),
+    PointDefinition("market.export_price", "ct/kWh", float, 3900, "Current gross electricity export remuneration."),
+
     # Weather can be slower.
     PointDefinition("weather.outdoor_temperature", "°C", float, 600, "Outdoor air temperature."),
 
