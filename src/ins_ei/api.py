@@ -5,6 +5,7 @@ from fastapi import FastAPI, Response
 from .runtime import Runtime
 from .site_view import build_site_view
 from .schema_renderer import render_svg
+from .outcomes import OutcomeExpectation
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -38,6 +39,42 @@ def create_app(runtime: Runtime) -> FastAPI:
         runtime.metrics.set("emergency_stop_active", 0)
         runtime.audit.record("safety.emergency_stop_reset", reason=reason)
         return {"emergency_stop": False, "reason": state.reason}
+
+    @app.post("/outcomes/register")
+    def register_outcome(
+        correlation_id: str,
+        component: str,
+        point: str,
+        horizon_seconds: int,
+        expected_delta: float | None = None,
+        expected_value: float | None = None,
+        tolerance: float | None = None,
+        unit: str | None = None,
+        model_id: str | None = None,
+        model_version: str | None = None,
+    ) -> dict:
+        pending = runtime.outcomes.register(OutcomeExpectation(
+            correlation_id=correlation_id,
+            metric_component=component,
+            metric_point=point,
+            horizon_seconds=horizon_seconds,
+            expected_delta=expected_delta,
+            expected_value=expected_value,
+            tolerance=tolerance,
+            unit=unit,
+            model_id=model_id,
+            model_version=model_version,
+        ))
+        return {
+            "correlation_id": correlation_id,
+            "due_at": pending.due_at.isoformat(),
+            "baseline_value": pending.baseline_value,
+        }
+
+    @app.post("/outcomes/evaluate")
+    def evaluate_outcomes() -> dict:
+        results = runtime.evaluate_outcomes()
+        return {"results": [result.__dict__ for result in results]}
 
     @app.get("/history/trace/{correlation_id}")
     def history_trace(correlation_id: str) -> dict:
