@@ -1,0 +1,16 @@
+{
+  "api_version": "ins-ei.catalog/v1",
+  "generated_at": "2026-09-27T12:00:00+02:00",
+  "plugins": [
+    {
+      "id": "oekofen",
+      "version": "0.1.0",
+      "plugin_api": "ins-ei.plugin/v1",
+      "core": {"min": "0.1.0", "max_exclusive": "1.0.0"},
+      "artifact": {
+        "url": "https://ins-ei.example/plugins/oekofen/0.1.0.tar.gz",
+        "sha256": "REPLACE_WITH_RELEASE_CHECKSUM"
+      }
+    }
+  ]
+}
