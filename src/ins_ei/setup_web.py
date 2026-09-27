@@ -4,7 +4,7 @@ from html import escape
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.6") -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.7") -> HTMLResponse:
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
 
     choices = []
@@ -68,21 +68,21 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <div id="noneSelected" class="card muted">Noch kein Plugin ausgewählt.</div>
 </section>
 
-<section class="page"><h2>Erkannte Komponenten</h2><div class="card"><p class="muted">Nach erfolgreichen Verbindungstests erscheinen hier erkannte Kessel, Speicher, Batterie, PV, Zähler usw.</p><div id="discovered">Noch keine Komponenten erkannt.</div></div></section>
+<section class="page"><h2>Erkannte Komponenten</h2><div class="card"><p class="muted">Nach erfolgreichen Verbindungstests erscheinen hier erkannte Kessel, Speicher, Batterie, PV, Zähler usw.</p><div id="discoveredComponents">Noch keine Komponenten erkannt.</div></div></section>
 <section class="page"><h2>Anlage & Verbindungen</h2><div class="card muted">Hier entsteht anschließend der SiteGraph bzw. das grafische Anlagen-/Hydraulikschema.</div></section>
 <section class="page"><h2>Grenzen</h2><div class="card muted">Hier setzen wir nur harte Grenzen und Komfortvorgaben, die INS-EI nicht selbst lernen darf.</div></section>
 <section class="page"><h2>Learning / Shadow starten</h2><div class="card"><p>INS-EI speichert die Anlage lokal und startet zunächst ohne autonome Steuerhoheit.</p><button class="primary" onclick="save()">Anlage speichern & Learning starten</button><div id="saveResult"></div></div></section>
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
-let step=0; const pages=[...document.querySelectorAll('.page')], dots=[...document.querySelectorAll('.stepDot')], discovered=[];
+let step=0; const pages=[...document.querySelectorAll('.page')], dots=[...document.querySelectorAll('.stepDot')]; let discoveredPoints=[];
 function show(){{pages.forEach((x,i)=>x.classList.toggle('active',i===step));dots.forEach((x,i)=>x.classList.toggle('active',i===step));prev.disabled=step===0;next.style.visibility=step===pages.length-1?'hidden':'visible'}}
 function move(n){{step=Math.max(0,Math.min(pages.length-1,step+n));show()}}
 function selectedIds(){{return [...document.querySelectorAll('[data-select-plugin]:checked')].map(x=>x.dataset.selectPlugin)}}
 function syncPlugins(){{const ids=selectedIds();document.querySelectorAll('[data-config-plugin]').forEach(x=>x.hidden=!ids.includes(x.dataset.configPlugin));noneSelected.hidden=ids.length>0}}
 function cfg(id){{let o={{}};document.querySelectorAll('[data-plugin="'+id+'"]').forEach(x=>{{if(x.value!=='')o[x.dataset.field]=(x.dataset.field==='port'||x.dataset.field==='unit_id')?Number(x.value):x.value}});return o}}
-async function testPlugin(id){{const el=document.getElementById('r_'+id);el.textContent=' teste…';try{{const r=await fetch('setup/test-plugin',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id+'_main',config:cfg(id)}})}});const d=await r.json();el.className=r.ok?'ok':'bad';el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');if(r.ok){{discovered=discovered.filter(x=>x.plugin!==id);d.points.forEach(p=>discovered.push({{plugin:id,component:p.component_id,point:p.point}}));renderDiscovered()}}}}catch(e){{el.className='bad';el.textContent=' ✗ '+e}}}}
-function renderDiscovered(){{const uniq=[...new Set(discovered.map(x=>x.component))];document.getElementById('discovered').innerHTML=uniq.length?uniq.map(x=>'<div>✓ '+x+'</div>').join(''):'Noch keine Komponenten erkannt.'}}
-async function save(){{const ids=selectedIds();const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));const components=[...new Set(discovered.map(x=>x.component))].map(id=>({{id,kind:'GENERIC'}}));const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components,relations:[],connections:[],constraints:[],apps:{{}},strategy:{{modules:[]}},site_rules:[]}};const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});const d=await r.json();saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler'}}
+async function testPlugin(id){{const el=document.getElementById('r_'+id);el.textContent=' teste…';try{{const r=await fetch('setup/test-plugin',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id+'_main',config:cfg(id)}})}});const d=await r.json();el.className=r.ok?'ok':'bad';el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');if(r.ok){{discoveredPoints=discoveredPoints.filter(x=>x.plugin!==id);d.points.forEach(p=>discoveredPoints.push({{plugin:id,component:p.component_id,point:p.point}}));renderDiscovered()}}}}catch(e){{el.className='bad';el.textContent=' ✗ '+e}}}}
+function renderDiscovered(){{const uniq=[...new Set(discoveredPoints.map(x=>x.component))];document.getElementById('discoveredComponents').innerHTML=uniq.length?uniq.map(x=>'<div>✓ '+x+'</div>').join(''):'Noch keine Komponenten erkannt.'}}
+async function save(){{const ids=selectedIds();const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));const components=[...new Set(discoveredPoints.map(x=>x.component))].map(id=>({{id,kind:'GENERIC'}}));const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components,relations:[],connections:[],constraints:[],apps:{{}},strategy:{{modules:[]}},site_rules:[]}};const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});const d=await r.json();saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler'}}
 syncPlugins();show();
 </script></main></body></html>""")
