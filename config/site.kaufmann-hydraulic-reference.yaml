@@ -1,0 +1,79 @@
+api_version: ins-ei.site/v1
+site:
+  id: kaufmann-hydraulic-reference
+  timezone: Europe/Vienna
+
+plugin_instances: []
+
+components:
+  - id: pellet_boiler
+    kind: HEAT_GENERATOR
+    ports:
+      - {id: supply, type: HYDRAULIC_SUPPLY}
+      - {id: return, type: HYDRAULIC_RETURN}
+
+  - id: wood_boiler
+    kind: HEAT_GENERATOR
+    properties: {nominal_power_kw: 22}
+    ports:
+      - {id: supply, type: HYDRAULIC_SUPPLY}
+      - {id: return, type: HYDRAULIC_RETURN}
+
+  - id: buffer
+    kind: BUFFER
+    properties: {volume_l: 600}
+    ports:
+      - {id: top, type: HYDRAULIC}
+      - {id: middle, type: HYDRAULIC}
+      - {id: bottom, type: HYDRAULIC}
+    sensors:
+      - {id: futus_top, point: thermal.temperature_upper, position: 0.05}
+      - {id: tpo, position: 0.25}
+      - {id: futus_middle, position: 0.50}
+      - {id: tpm, point: thermal.temperature_lower, position: 0.75}
+
+  - id: electric_heat
+    kind: POWER_TO_HEAT
+    properties: {nominal_power_kw: 9, target_supply_temperature_c: 70}
+    ports:
+      - {id: supply, type: HYDRAULIC_SUPPLY}
+      - {id: return, type: HYDRAULIC_RETURN}
+
+  - id: dhw
+    kind: DHW
+    properties: {volume_l: 300}
+    ports:
+      - {id: heating_supply, type: HYDRAULIC_SUPPLY}
+      - {id: heating_return, type: HYDRAULIC_RETURN}
+
+  - id: heating_circuit_radiators
+    kind: HEATING_CIRCUIT
+    ports:
+      - {id: supply, type: HYDRAULIC_SUPPLY}
+      - {id: return, type: HYDRAULIC_RETURN}
+
+  - id: heating_circuit_floor
+    kind: HEATING_CIRCUIT
+    ports:
+      - {id: supply, type: HYDRAULIC_SUPPLY}
+      - {id: return, type: HYDRAULIC_RETURN}
+
+relations:
+  - {from: pellet_boiler, to: buffer, type: HEATS}
+  - {from: wood_boiler, to: buffer, type: HEATS}
+  - {from: electric_heat, to: buffer, type: HEATS}
+
+connections:
+  - {from: pellet_boiler.supply, to: buffer.middle, medium: WATER}
+  - {from: buffer.bottom, to: pellet_boiler.return, medium: WATER}
+  - {from: wood_boiler.supply, to: buffer.top, medium: WATER}
+  - {from: buffer.bottom, to: wood_boiler.return, medium: WATER}
+  - {from: electric_heat.supply, to: buffer.top, medium: WATER}
+  - {from: buffer.bottom, to: electric_heat.return, medium: WATER}
+
+constraints: []
+apps:
+  heating: {enabled: true}
+  energy: {enabled: true}
+strategy: {modules: []}
+site_rules: []
