@@ -40,6 +40,22 @@ def create_app(runtime: Runtime) -> FastAPI:
         runtime.audit.record("safety.emergency_stop_reset", reason=reason)
         return {"emergency_stop": False, "reason": state.reason}
 
+    @app.get("/autonomy")
+    def autonomy() -> dict:
+        return {
+            "capabilities": [
+                {
+                    "capability": item.capability,
+                    "mode": item.mode,
+                    "required_models": item.required_models,
+                    "physical_write_allowed": item.physical_write_allowed,
+                    "reason": item.reason,
+                    "assessment": runtime.autonomy.assess(item.capability).__dict__,
+                }
+                for item in runtime.autonomy.snapshot()
+            ]
+        }
+
     @app.get("/learning/models")
     def learning_models() -> dict:
         return {
