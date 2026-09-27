@@ -50,3 +50,7 @@
 
 ## ADR-015 — Data validity and freshness are separate
 **Accepted — 2026-09-27.** Canonical observations retain source quality and observation time. StateStore derives effective STALE state when a GOOD observation exceeds its configured freshness threshold. Strategies consume freshness-aware state and must not treat an old GOOD observation as current. Plugin heartbeat is tracked separately from individual point freshness.
+
+
+## ADR-016 — Canonical points require registry semantics
+**Accepted — 2026-09-27.** A value becomes a canonical INS-EI point only after its vendor-independent meaning, unit/sign convention, value type and default freshness are defined in the Point Registry. StateStore validates canonical observations against this registry. Vendor fields without defined semantics remain plugin diagnostics/unmapped data rather than silently expanding the Core data model.
