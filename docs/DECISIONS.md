@@ -58,3 +58,7 @@
 
 ## ADR-017 — Dynamic battery charging starts rule-based, then becomes forecast-aware
 **Accepted — 2026-09-27.** The first dynamic grid-charge strategy uses explicit current-price, SOC and charge-limit thresholds for transparent Shadow-mode behavior. It must not be described as globally economically optimal. Forecast-aware multi-slot optimization will later incorporate future tariffs, PV/consumption forecasts, efficiency, reserve and export opportunity cost without moving economic logic into battery plugins.
+
+
+## ADR-018 — Hydraulic schematics are machine-readable port topology
+**Accepted — 2026-09-27.** Detailed hydraulic installations are modeled with component ports, directed connections and sensor positions inside SiteGraph. Simple component-level relations remain valid for uncomplicated sites. The topology is the source of truth; future graphical schematics are rendered/edited views of it. INS-EI does not become a hydraulic simulator unless a future application explicitly requires such physics.
