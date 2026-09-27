@@ -94,3 +94,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-026 — Learning requires explicit expected-versus-observed outcomes
 **Accepted — 2026-09-27.** INS-EI records model/decision expectations against canonical metrics and evaluates them after an explicit observation horizon. Residual/error is persisted under the originating correlation ID and model version. Missing, stale, invalid or unavailable result data produces UNOBSERVABLE rather than a fabricated learning sample. Outcome Tracking measures evidence; automatic model adaptation is a separate later layer.
+
+
+## ADR-027 — Model readiness is evidence-based and separate from autonomy
+**Accepted — 2026-09-27.** Learning Models have explicit versions, dependencies and lifecycle states (LEARNING, READY, DEGRADED, INVALIDATED). Readiness is assessed from observable outcomes, prediction error and operating-context coverage rather than elapsed time or sample count alone. READY never grants physical autonomy by itself; capability autonomy remains a separate gate combining model readiness with Safety, data health, Site constraints, proven plugin write capability and operator/site policy.
