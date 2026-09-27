@@ -12,6 +12,10 @@ def create_app(runtime: Runtime) -> FastAPI:
     def health() -> dict:
         return runtime.health()
 
+    @app.get("/site")
+    def site() -> dict:
+        return runtime.graph.describe()
+
     @app.get("/plugins")
     def plugins() -> dict:
         return {
