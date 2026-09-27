@@ -4,11 +4,13 @@ from ins_ei.plugins.base import Plugin
 from ins_ei.plugins.demo import DemoPlugin
 from ins_ei.plugins.oekofen import OekofenPlugin
 from ins_ei.plugins.mypv import MyPVPlugin
+from ins_ei.plugins.shrdzm import ShrdzmPlugin
 
 PLUGIN_REGISTRY: dict[str, type[Plugin]] = {
     "demo": DemoPlugin,
     "oekofen": OekofenPlugin,
     "mypv": MyPVPlugin,
+    "shrdzm": ShrdzmPlugin,
 }
 
 
