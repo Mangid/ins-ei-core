@@ -83,6 +83,34 @@ class Historian:
                 context_version TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS learning_models (
+                model_id TEXT PRIMARY KEY,
+                version TEXT NOT NULL,
+                capability TEXT NOT NULL,
+                status TEXT NOT NULL,
+                dependencies_json TEXT NOT NULL,
+                metadata_json TEXT NOT NULL,
+                reason TEXT,
+                created_at TEXT NOT NULL,
+                status_changed_at TEXT NOT NULL,
+                readiness_policy_json TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS model_evidence (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                occurred_at TEXT NOT NULL,
+                site_id TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                model_version TEXT NOT NULL,
+                correlation_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                residual REAL,
+                context_bucket TEXT,
+                UNIQUE(model_id, model_version, correlation_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_model_evidence
+              ON model_evidence(site_id, model_id, model_version, occurred_at);
+
             CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 occurred_at TEXT NOT NULL,
@@ -211,6 +239,68 @@ class Historian:
                 if result is not None else None,
                 error, context_version,
             ))
+
+
+    def save_model(self, model, readiness_policy: dict[str, Any] | None = None) -> None:
+        dependencies = [
+            {"kind": d.kind, "id": d.id, "version": d.version}
+            for d in model.dependencies
+        ]
+        with self._lock, self._connection() as db:
+            db.execute("""
+                INSERT INTO learning_models(
+                    model_id, version, capability, status, dependencies_json,
+                    metadata_json, reason, created_at, status_changed_at,
+                    readiness_policy_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(model_id) DO UPDATE SET
+                    version=excluded.version,
+                    capability=excluded.capability,
+                    status=excluded.status,
+                    dependencies_json=excluded.dependencies_json,
+                    metadata_json=excluded.metadata_json,
+                    reason=excluded.reason,
+                    status_changed_at=excluded.status_changed_at,
+                    readiness_policy_json=excluded.readiness_policy_json
+            """, (
+                model.id, model.version, model.capability, str(model.status),
+                json.dumps(dependencies, ensure_ascii=False),
+                json.dumps(model.metadata, ensure_ascii=False, default=str),
+                model.reason, model.created_at.isoformat(),
+                model.status_changed_at.isoformat(),
+                json.dumps(readiness_policy, ensure_ascii=False)
+                if readiness_policy is not None else None,
+            ))
+
+    def load_models(self) -> list[dict[str, Any]]:
+        with self._connection() as db:
+            rows = db.execute("SELECT * FROM learning_models ORDER BY model_id").fetchall()
+        return [dict(row) for row in rows]
+
+    def record_model_evidence(
+        self, site_id: str, model_id: str, model_version: str,
+        correlation_id: str, status: str, residual: float | None,
+        context_bucket: str | None = None,
+    ) -> None:
+        with self._lock, self._connection() as db:
+            db.execute("""
+                INSERT OR REPLACE INTO model_evidence(
+                    occurred_at, site_id, model_id, model_version,
+                    correlation_id, status, residual, context_bucket
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                datetime.now().astimezone().isoformat(), site_id, model_id,
+                model_version, correlation_id, status, residual, context_bucket,
+            ))
+
+    def model_evidence(self, site_id: str, model_id: str, model_version: str) -> list[dict[str, Any]]:
+        with self._connection() as db:
+            rows = db.execute("""
+                SELECT * FROM model_evidence
+                WHERE site_id=? AND model_id=? AND model_version=?
+                ORDER BY occurred_at
+            """, (site_id, model_id, model_version)).fetchall()
+        return [dict(row) for row in rows]
 
     def correlation(self, site_id: str, correlation_id: str) -> dict[str, Any]:
         with self._connection() as db:
