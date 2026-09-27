@@ -1,0 +1,17 @@
+api_version: ins-ei.plugin/v1
+id: oekofen
+name: ÖkoFEN
+version: 0.1.0
+kind: device
+entrypoint: ins_ei.plugins.oekofen:OekofenPlugin
+capabilities:
+  - heat_generator
+  - buffer
+  - dhw
+  - heating_circuit
+commands:
+  - heat_generator.set_enabled
+  - dhw.request_once
+permissions:
+  network: true
+  filesystem: false
