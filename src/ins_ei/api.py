@@ -39,6 +39,27 @@ def create_app(runtime: Runtime) -> FastAPI:
         runtime.audit.record("safety.emergency_stop_reset", reason=reason)
         return {"emergency_stop": False, "reason": state.reason}
 
+    @app.get("/timeseries")
+    def timeseries() -> dict:
+        return {
+            "series": {
+                name: [
+                    {
+                        "start": slot.start.isoformat(),
+                        "end": slot.end.isoformat(),
+                        "value": slot.value,
+                        "unit": slot.unit,
+                        "quality": slot.quality,
+                        "generated_at": slot.generated_at.isoformat() if slot.generated_at else None,
+                        "source": slot.source,
+                        "metadata": slot.metadata,
+                    }
+                    for slot in runtime.timeseries.series(name)
+                ]
+                for name in runtime.timeseries.names()
+            }
+        }
+
     @app.get("/metrics")
     def metrics() -> dict:
         return runtime.metrics.snapshot()
