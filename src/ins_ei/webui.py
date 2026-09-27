@@ -29,7 +29,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
  <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div>registrierte Modelle</div></div>
  <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
 </div>
-<div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="/site/schema.svg"></iframe></div>
+<div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="site/schema.svg"></iframe></div>
 <div class="grid">
  <div class="card"><div class="title">Plugin Health</div><table id="plugins"><tbody></tbody></table></div>
  <div class="card"><div class="title">Capability Autonomy</div><table id="autonomy"><tbody></tbody></table></div>
