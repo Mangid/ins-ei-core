@@ -17,6 +17,7 @@ from .audit import AuditLog
 from .metrics import Metrics
 from .timeseries import TimeSeriesStore
 from .historian import Historian
+from .outcomes import OutcomeTracker
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -50,6 +51,9 @@ class Runtime:
         )
         self.context_version = "site-v1"
         self.last_correlation_id = None
+        self.outcomes = OutcomeTracker(
+            self.state, self.historian, site.site.id, self.context_version
+        )
         self.audit = AuditLog(site.site.id)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
@@ -168,6 +172,15 @@ class Runtime:
             ],
         )
         return self.last_decision
+
+    def evaluate_outcomes(self):
+        results = self.outcomes.evaluate_due()
+        self.metrics.inc("outcome_evaluated_total", len(results))
+        self.metrics.inc(
+            "outcome_unobservable_total",
+            sum(1 for result in results if result.status == "UNOBSERVABLE"),
+        )
+        return results
 
     def health(self) -> dict:
         now = datetime.now().astimezone()
