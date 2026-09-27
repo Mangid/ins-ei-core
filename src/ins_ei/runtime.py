@@ -9,6 +9,8 @@ from .plugins.base import Plugin
 from .plugin_loader import PluginCatalog
 from .state import StateStore
 from .site_graph import SiteGraph
+from .strategy import StrategyContext
+from .strategy_loader import build_strategy_engine
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -25,6 +27,8 @@ class Runtime:
         self.site = site
         self.state = StateStore()
         self.graph = SiteGraph(site)
+        self.strategy_engine = build_strategy_engine(site, self.graph)
+        self.last_decision = None
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
@@ -99,6 +103,12 @@ class Runtime:
                 managed.status = PluginStatus.FAILED
                 managed.error = str(exc)
                 log.exception("plugin stop failed | instance=%s", instance_id)
+
+    def evaluate_strategy(self):
+        self.last_decision = self.strategy_engine.evaluate(
+            StrategyContext(self.graph, self.state)
+        )
+        return self.last_decision
 
     def health(self) -> dict:
         statuses = {
