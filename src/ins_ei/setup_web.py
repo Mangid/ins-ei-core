@@ -4,7 +4,7 @@ from html import escape
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.10", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.11", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
@@ -81,7 +81,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
-let step=0; const pages=[...document.querySelectorAll('.page')], dots=[...document.querySelectorAll('.stepDot')]; let discoveredPoints=[];
+let step=0; const pages=[...document.querySelectorAll('.page')], dots=[...document.querySelectorAll('.stepDot')]; let discoveredPoints=[]; let discoveredComponents=[];
 function show(){{pages.forEach((x,i)=>x.classList.toggle('active',i===step));dots.forEach((x,i)=>x.classList.toggle('active',i===step));prev.disabled=step===0;next.style.visibility=step===pages.length-1?'hidden':'visible'}}
 function move(n){{step=Math.max(0,Math.min(pages.length-1,step+n));show()}}
 function selectedIds(){{return [...document.querySelectorAll('[data-select-plugin]:checked')].map(x=>x.dataset.selectPlugin)}}
