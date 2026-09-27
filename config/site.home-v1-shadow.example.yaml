@@ -26,9 +26,19 @@ plugin_instances:
     config:
       host: CHANGE_ME
       component_id: grid
+  - id: victron_gx
+    plugin: victron-gx
+    config:
+      host: CHANGE_ME
+      port: 1883
+      portal_id: CHANGE_ME
+      battery_component: battery
+      pv_component: pv
 
 components:
   - {id: grid, kind: GRID, provider: grid_meter}
+  - {id: pv, kind: PV, provider: victron_gx, properties: {nominal_power_kw: 10}}
+  - {id: battery, kind: BATTERY, provider: victron_gx, properties: {capacity_kwh: 30}}
   - {id: pellet_boiler, kind: HEAT_GENERATOR, provider: oekofen_main}
   - id: buffer
     kind: BUFFER
@@ -42,6 +52,9 @@ components:
   - {id: weather, kind: WEATHER, provider: oekofen_main}
 
 relations:
+  - {from: pv, to: battery, type: CHARGES}
+  - {from: pv, to: grid, type: CONNECTED_TO}
+  - {from: battery, to: grid, type: CONNECTED_TO}
   - {from: pellet_boiler, to: buffer, type: HEATS}
   - {from: pellet_boiler, to: dhw, type: HEATS}
   - {from: power_to_heat, to: buffer, type: HEATS}
