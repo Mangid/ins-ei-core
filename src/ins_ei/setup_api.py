@@ -9,6 +9,42 @@ from ins_ei.plugin_loader import PluginCatalog
 from ins_ei.setup_store import SetupStore
 
 
+
+def _infer_components(points) -> list[dict[str, Any]]:
+    kinds = {
+        "power_to_heat": "POWER_TO_HEAT",
+        "pellet_boiler": "HEAT_GENERATOR",
+        "buffer": "BUFFER",
+        "dhw": "DHW",
+        "grid": "GRID",
+        "weather": "WEATHER",
+        "battery": "BATTERY",
+        "pv": "PV",
+        "hk1": "HEATING_CIRCUIT",
+        "hk2": "HEATING_CIRCUIT",
+    }
+    component_ids = sorted({p.component_id for p in points})
+    result = []
+    for component_id in component_ids:
+        kind = kinds.get(component_id)
+        if kind is None:
+            # Point-prefix fallback for future plugins; explicit plugin discovery
+            # metadata will supersede this V1 inference.
+            point_names = [p.point for p in points if p.component_id == component_id]
+            if any(x.startswith("battery.") for x in point_names):
+                kind = "BATTERY"
+            elif any(x.startswith("pv.") for x in point_names):
+                kind = "PV"
+            elif any(x.startswith("grid.") for x in point_names):
+                kind = "GRID"
+        result.append({
+            "id": component_id,
+            "kind": kind,
+            "ready": kind is not None,
+        })
+    return result
+
+
 def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
     router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -63,6 +99,7 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
                 ),
                 "health": health.model_dump(mode="json"),
                 "points": [p.model_dump(mode="json") for p in points],
+                "components": _infer_components(points),
                 "diagnostics": diagnostics,
             }
         except Exception as exc:
