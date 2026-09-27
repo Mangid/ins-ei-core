@@ -20,6 +20,7 @@ from .historian import Historian
 from .outcomes import OutcomeTracker
 from .model_registry import ModelRegistry
 from .autonomy import AutonomyGate
+from .learning_coordinator import LearningCoordinator
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -55,6 +56,10 @@ class Runtime:
         self.last_correlation_id = None
         self.models = ModelRegistry()
         self.autonomy = AutonomyGate(self.models)
+        self.learning = LearningCoordinator(
+            site.site.id, self.historian, self.models, self.autonomy
+        )
+        self.learning.restore()
         self.outcomes = OutcomeTracker(
             self.state, self.historian, site.site.id, self.context_version
         )
@@ -179,6 +184,9 @@ class Runtime:
 
     def evaluate_outcomes(self):
         results = self.outcomes.evaluate_due()
+        for result in results:
+            if result.model_id and result.model_version:
+                self.learning.ingest_outcome(result)
         self.metrics.inc("outcome_evaluated_total", len(results))
         self.metrics.inc(
             "outcome_unobservable_total",
