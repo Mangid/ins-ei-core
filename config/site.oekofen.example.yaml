@@ -1,0 +1,39 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: oekofen-test
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: oekofen_main
+    plugin: oekofen
+    config:
+      host: 192.0.2.10
+      password: CHANGE_ME
+      port: 4321
+      components:
+        boiler: pellet_boiler
+        buffer: buffer
+        dhw: dhw
+        weather: weather
+        hk1: heating_circuit_1
+        hk2: heating_circuit_2
+
+components:
+  - {id: pellet_boiler, kind: HEAT_GENERATOR, provider: oekofen_main}
+  - {id: buffer, kind: BUFFER, provider: oekofen_main}
+  - {id: dhw, kind: DHW, provider: oekofen_main}
+  - {id: weather, kind: WEATHER, provider: oekofen_main}
+  - {id: heating_circuit_1, kind: HEATING_CIRCUIT, provider: oekofen_main}
+  - {id: heating_circuit_2, kind: HEATING_CIRCUIT, provider: oekofen_main}
+
+relations:
+  - {from: pellet_boiler, to: buffer, type: HEATS}
+  - {from: pellet_boiler, to: dhw, type: HEATS}
+
+constraints: []
+apps:
+  heating: {enabled: true}
+  energy: {enabled: false}
+strategy: {modules: []}
+site_rules: []
