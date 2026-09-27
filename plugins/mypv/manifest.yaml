@@ -4,11 +4,11 @@ name: my-PV
 version: 0.1.0
 kind: device
 entrypoint: ins_ei.plugins.mypv:MyPVPlugin
-capabilities:
-  - power_to_heat
-  - electrical_telemetry
-permissions:
-  network: true
-  filesystem: false
-notes:
-  control: disabled_until_proven_write_interface
+capabilities: [power_to_heat, electrical_telemetry]
+config_schema:
+  fields:
+    - {id: host, label: IP / Host, type: text, required: true}
+    - {id: port, label: Modbus Port, type: number, default: 502}
+    - {id: unit_id, label: Unit ID, type: number, default: 1}
+permissions: {network: true, filesystem: false}
+notes: {control: disabled_until_proven_write_interface}
