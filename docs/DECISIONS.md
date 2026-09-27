@@ -54,3 +54,7 @@
 
 ## ADR-016 — Canonical points require registry semantics
 **Accepted — 2026-09-27.** A value becomes a canonical INS-EI point only after its vendor-independent meaning, unit/sign convention, value type and default freshness are defined in the Point Registry. StateStore validates canonical observations against this registry. Vendor fields without defined semantics remain plugin diagnostics/unmapped data rather than silently expanding the Core data model.
+
+
+## ADR-017 — Dynamic battery charging starts rule-based, then becomes forecast-aware
+**Accepted — 2026-09-27.** The first dynamic grid-charge strategy uses explicit current-price, SOC and charge-limit thresholds for transparent Shadow-mode behavior. It must not be described as globally economically optimal. Forecast-aware multi-slot optimization will later incorporate future tariffs, PV/consumption forecasts, efficiency, reserve and export opportunity cost without moving economic logic into battery plugins.
