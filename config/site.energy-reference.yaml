@@ -1,0 +1,42 @@
+api_version: ins-ei.site/v1
+
+site:
+  id: energy-reference
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: energy_io
+    plugin: energy-reference
+    config:
+      pv_component: pv
+      battery_component: battery
+      values:
+        pv_generation_w: 6500
+        soc_percent: 62
+        charge_power_w: 1800
+        discharge_power_w: 0
+        max_charge_power_w: 5000
+        max_discharge_power_w: 5000
+        capacity_usable_kwh: 30
+
+components:
+  - {id: pv, kind: PV, provider: energy_io}
+  - {id: battery, kind: BATTERY, provider: energy_io}
+  - {id: grid, kind: GRID}
+
+relations:
+  - {from: pv, to: battery, type: CHARGES}
+  - {from: battery, to: grid, type: CONNECTED_TO}
+  - {from: pv, to: grid, type: CONNECTED_TO}
+
+constraints:
+  - {id: battery_soc_min, type: MIN_VALUE, target: battery.battery.soc, value: 20, unit: "%"}
+  - {id: battery_soc_max, type: MAX_VALUE, target: battery.battery.soc, value: 100, unit: "%"}
+
+apps:
+  energy: {enabled: true}
+
+strategy:
+  modules: []
+
+site_rules: []
