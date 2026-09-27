@@ -135,7 +135,7 @@ class Runtime:
         if self.safety.state().emergency_stop:
             self.metrics.inc("strategy_blocked_emergency_stop_total")
         self.last_decision = self.strategy_engine.evaluate(
-            StrategyContext(self.graph, self.state)
+            StrategyContext(self.graph, self.state, self.timeseries)
         )
         self.audit.record(
             "strategy.decision",
