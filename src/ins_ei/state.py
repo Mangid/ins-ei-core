@@ -4,6 +4,7 @@ from datetime import datetime
 from threading import RLock
 
 from .models import Point, Quality
+from .point_registry import definition, validate_point
 
 
 class StateStore:
@@ -16,6 +17,9 @@ class StateStore:
     def ingest(self, points: list[Point]) -> None:
         with self._lock:
             for point in points:
+                errors = validate_point(point.point, point.value, point.unit)
+                if errors:
+                    raise ValueError(";".join(errors))
                 self._points[(point.component_id, point.point)] = point
 
     def set_stale_threshold(self, component_id: str, point: str, seconds: float) -> None:
@@ -25,9 +29,13 @@ class StateStore:
             self._stale_thresholds[(component_id, point)] = float(seconds)
 
     def stale_after_seconds(self, component_id: str, point: str) -> float:
-        return self._stale_thresholds.get(
-            (component_id, point), self.default_stale_after_seconds
-        )
+        override = self._stale_thresholds.get((component_id, point))
+        if override is not None:
+            return override
+        spec = definition(point)
+        if spec is not None:
+            return spec.stale_after_seconds
+        return self.default_stale_after_seconds
 
     @staticmethod
     def age_seconds(point: Point, now: datetime | None = None) -> float:
