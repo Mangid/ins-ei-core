@@ -24,6 +24,17 @@ class CommandDispatcher:
         self.runtime = runtime
 
     def dispatch_intent(self, intent: Intent) -> CommandResult:
+        try:
+            self.runtime.safety.assert_command_allowed()
+        except Exception as exc:
+            self.runtime.metrics.inc("command_blocked_emergency_stop_total")
+            self.runtime.audit.record(
+                "command.blocked",
+                target=intent.target,
+                command=intent.command,
+                reason=str(exc),
+            )
+            raise
         component = self.runtime.graph.component(intent.target)
         if not component.provider:
             raise ValueError(f"COMMAND_TARGET_HAS_NO_PROVIDER:{intent.target}")
@@ -39,7 +50,21 @@ class CommandDispatcher:
 
         managed = self.runtime.plugins[instance_id]
         try:
+            self.runtime.audit.record(
+                "command.attempt",
+                target=intent.target,
+                command=intent.command,
+                plugin_instance=instance_id,
+                parameters=intent.parameters,
+            )
             result = managed.plugin.execute(intent.command, intent.parameters)
+            self.runtime.metrics.inc("command_success_total")
+            self.runtime.audit.record(
+                "command.success",
+                target=intent.target,
+                command=intent.command,
+                plugin_instance=instance_id,
+            )
             return CommandResult(
                 target=intent.target,
                 command=intent.command,
@@ -48,6 +73,14 @@ class CommandDispatcher:
                 result=result,
             )
         except Exception as exc:
+            self.runtime.metrics.inc("command_failed_total")
+            self.runtime.audit.record(
+                "command.failed",
+                target=intent.target,
+                command=intent.command,
+                plugin_instance=instance_id,
+                error=str(exc),
+            )
             return CommandResult(
                 target=intent.target,
                 command=intent.command,
