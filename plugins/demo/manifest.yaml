@@ -1,0 +1,11 @@
+api_version: ins-ei.plugin/v1
+id: demo
+name: INS-EI Demo
+version: 0.1.0
+kind: test
+entrypoint: ins_ei.plugins.demo:DemoPlugin
+capabilities:
+  - demo
+permissions:
+  network: false
+  filesystem: false
