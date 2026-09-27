@@ -4,7 +4,7 @@ from html import escape
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.7") -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.9") -> HTMLResponse:
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
 
     choices = []
