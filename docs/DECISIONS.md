@@ -42,3 +42,7 @@
 
 ## ADR-013 — Decisions and writes are auditable and observable
 **Accepted — 2026-09-27.** Strategy decisions, physical command attempts/results, safety-state changes and important plugin lifecycle failures are first-class audit events. Runtime metrics are part of the Core architecture, not optional application diagnostics.
+
+
+## ADR-014 — Optimization may propose capabilities that remain physically disabled
+**Accepted — 2026-09-27.** Strategy evaluation and physical execution are separate. A Strategy may produce a canonical intent for a capability understood by the plant model even when the current device plugin has not yet enabled a proven write implementation. Command Dispatcher/manifest validation must block such execution. This allows safe Shadow-mode development without weakening the physical write boundary.
