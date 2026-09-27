@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from .runtime import Runtime
 from .site_view import build_site_view
+from .schema_renderer import render_svg
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -82,6 +83,11 @@ def create_app(runtime: Runtime) -> FastAPI:
             ],
             "decided_at": decision.decided_at.isoformat(),
         }
+
+    @app.get("/site/schema.svg")
+    def site_schema_svg() -> Response:
+        svg = render_svg(build_site_view(runtime.graph, runtime.state))
+        return Response(content=svg, media_type="image/svg+xml")
 
     @app.get("/site/view")
     def site_view() -> dict:
