@@ -90,3 +90,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-025 — Historian is persistent local memory with end-to-end correlation
 **Accepted — 2026-09-27.** Each INS-EI site persists canonical observations, Strategy decisions, physical command outcomes and generic events in a local Historian. Decision-to-command flow carries a correlation ID so future Outcome Tracking, Learning and Value Accounting can reconstruct causality/context. Historical records retain the configuration/context version valid when recorded rather than being reinterpreted as if the current plant/tariff always applied.
+
+
+## ADR-026 — Learning requires explicit expected-versus-observed outcomes
+**Accepted — 2026-09-27.** INS-EI records model/decision expectations against canonical metrics and evaluates them after an explicit observation horizon. Residual/error is persisted under the originating correlation ID and model version. Missing, stale, invalid or unavailable result data produces UNOBSERVABLE rather than a fabricated learning sample. Outcome Tracking measures evidence; automatic model adaptation is a separate later layer.
