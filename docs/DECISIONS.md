@@ -27,3 +27,7 @@
 
 ## ADR-009 — Plugins are discovered, not registered in Core
 **Accepted — 2026-09-27.** The Core discovers installed plugin manifests and dynamically loads declared entrypoints. Adding a device vendor must not require changing a static manufacturer registry in Core.
+
+
+## ADR-010 — Strategies produce intents; dispatcher executes commands
+**Accepted — 2026-09-27.** Strategy modules never call plugins directly. They produce canonical intents. A separate Command Dispatcher resolves the target component through SiteGraph, resolves its provider/plugin instance, verifies that the plugin manifest explicitly declares the command, and only then invokes the plugin. This creates a mandatory validation boundary between decision logic and physical writes.
