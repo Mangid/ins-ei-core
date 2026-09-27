@@ -92,23 +92,23 @@ function renderDiscovered(){{const uniq=[...new Set(discoveredPoints.map(x=>x.co
 async function save(){{const ids=selectedIds();const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));const components=[...new Set(discoveredPoints.map(x=>x.component))].map(id=>({{id,kind:'GENERIC'}}));const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components,relations:[],connections:[],constraints:[],apps:{{}},strategy:{{modules:[]}},site_rules:[]}};const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});const d=await r.json();saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler'}}
 
 let relations=[];
-const limitDefaults={
+const limitDefaults={{
  battery:[['battery_min_soc','Mindest-SOC',20,'%'],['battery_max_charge_current','Max. Ladestrom',100,'A'],['battery_max_discharge_current','Max. Entladestrom',100,'A']],
  buffer:[['buffer_max_temperature','Maximaltemperatur',75,'°C']],
  dhw:[['dhw_min_temperature','Absolute Mindesttemperatur',45,'°C'],['dhw_comfort_temperature','Komforttemperatur',55,'°C']],
  power_to_heat:[['power_to_heat_max_power','Maximale Leistung',9,'kW']]
-};
+}};
 function typedMap(){{const m=new Map();discoveredComponents.filter(x=>x.ready).forEach(x=>m.set(x.id,x));return m}}
 function proposeRelations(){{
- const m=typedMap(); const has=id=>m.has(id); const add=(a,b,t)=>{if(has(a)&&has(b)&&!relations.some(x=>x.from===a&&x.to===b&&x.type===t))relations.push({from:a,to:b,type:t})};
+ const m=typedMap(); const has=id=>m.has(id); const add=(a,b,t)=>{{if(has(a)&&has(b)&&!relations.some(x=>x.from===a&&x.to===b&&x.type===t))relations.push({{from:a,to:b,type:t}})}};
  add('pellet_boiler','buffer','HEATS');add('pellet_boiler','dhw','HEATS');add('power_to_heat','buffer','HEATS');add('buffer','hk1','SUPPLIES');add('buffer','hk2','SUPPLIES');add('grid','power_to_heat','SUPPLIES');add('pv','battery','CHARGES');add('pv','grid','CONNECTED_TO');add('battery','grid','CONNECTED_TO');
  renderTopology();renderLimits();updateStart();
 }}
-function renderTopology(){{const ids=[...typedMap().keys()];const opts=ids.map(x=>'<option>'+x+'</option>').join('');relFrom.innerHTML=opts;relTo.innerHTML=opts;topologyEditor.innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0"><span>'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>'}
-function addRelation(){{if(relFrom.value&&relTo.value&&relFrom.value!==relTo.value)relations.push({from:relFrom.value,to:relTo.value,type:relType.value});renderTopology();updateStart()}}
+function renderTopology(){{const ids=[...typedMap().keys()];const opts=ids.map(x=>'<option>'+x+'</option>').join('');relFrom.innerHTML=opts;relTo.innerHTML=opts;topologyEditor.innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0"><span>'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>'}}
+function addRelation(){{if(relFrom.value&&relTo.value&&relFrom.value!==relTo.value)relations.push({{from:relFrom.value,to:relTo.value,type:relType.value}});renderTopology();updateStart()}}
 function removeRelation(i){{relations.splice(i,1);renderTopology();updateStart()}}
-function renderLimits(){{const m=typedMap();let rows=[];for(const id of m.keys()){for(const d of (limitDefaults[id]||[])){rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+d[2]+'"><small>'+d[3]+'</small></div>')}}limitsEditor.innerHTML=rows.length?rows.join('') :'<div class="card muted">Für die erkannten Komponenten sind noch keine Pflichtgrenzen definiert.</div>'}}
-function buildConstraints(){{return [...document.querySelectorAll('[data-limit-id]')].map(x=>({id:x.dataset.limitId,type:x.dataset.limitId.includes('min')?'MIN_VALUE':'MAX_VALUE',target:x.dataset.limitTarget,value:Number(x.value),unit:x.dataset.limitUnit}))}}
+function renderLimits(){{const m=typedMap();let rows=[];for(const id of m.keys()){{for(const d of (limitDefaults[id]||[])){{rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+d[2]+'"><small>'+d[3]+'</small></div>')}}limitsEditor.innerHTML=rows.length?rows.join('') :'<div class="card muted">Für die erkannten Komponenten sind noch keine Pflichtgrenzen definiert.</div>'}}
+function buildConstraints(){{return [...document.querySelectorAll('[data-limit-id]')].map(x=>({{id:x.dataset.limitId,type:x.dataset.limitId.includes('min')?'MIN_VALUE':'MAX_VALUE',target:x.dataset.limitTarget,value:Number(x.value),unit:x.dataset.limitUnit}}))}}
 function updateStart(){{const typed=discoveredComponents.filter(x=>x.ready).length;const unknown=discoveredComponents.filter(x=>!x.ready).length;const tested=discoveredComponents.length>0;const confirmed=document.getElementById('limitsConfirmed')?.checked||false;const ok=tested&&typed>0&&unknown===0&&confirmed;commissioningCheck.innerHTML='<div>'+(tested?'✓':'✗')+' Geräte getestet</div><div>'+(unknown===0?'✓':'✗')+' Komponenten typisiert'+(unknown?' ('+unknown+' offen)':'')+'</div><div>'+(confirmed?'✓':'✗')+' Grenzen bestätigt</div><div>✓ Autonomie: Default-Deny / Shadow</div>';startButton.disabled=!ok}}
 syncPlugins();show();
 </script></main></body></html>""")
