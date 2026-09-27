@@ -1,0 +1,12 @@
+services:
+  ins-ei:
+    build: .
+    container_name: ins-ei
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/app/config:ro
+      - ./plugins:/app/plugins:ro
+      - ./data:/app/data
+    command: ["ins-ei", "--site", "/app/config/site.local.yaml", "--host", "0.0.0.0", "--port", "8080"]
