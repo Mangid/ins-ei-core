@@ -46,3 +46,7 @@
 
 ## ADR-014 — Optimization may propose capabilities that remain physically disabled
 **Accepted — 2026-09-27.** Strategy evaluation and physical execution are separate. A Strategy may produce a canonical intent for a capability understood by the plant model even when the current device plugin has not yet enabled a proven write implementation. Command Dispatcher/manifest validation must block such execution. This allows safe Shadow-mode development without weakening the physical write boundary.
+
+
+## ADR-015 — Data validity and freshness are separate
+**Accepted — 2026-09-27.** Canonical observations retain source quality and observation time. StateStore derives effective STALE state when a GOOD observation exceeds its configured freshness threshold. Strategies consume freshness-aware state and must not treat an old GOOD observation as current. Plugin heartbeat is tracked separately from individual point freshness.
