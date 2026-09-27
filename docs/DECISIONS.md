@@ -102,3 +102,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-028 — Physical autonomy is capability-specific and default-deny
 **Accepted — 2026-09-27.** Physical execution requires a separate capability Autonomy Gate in addition to Strategy correctness and Safety. Capabilities operate independently in LEARNING, SHADOW, ASSISTED or AUTONOMOUS modes. Unknown/unconfigured capabilities default to LEARNING with writes denied. AUTONOMOUS execution additionally requires explicit physical-write permission and READY status for all configured required Learning Models. Model regression can downgrade only dependent capabilities to SHADOW without disabling unrelated control domains.
+
+
+## ADR-029 — Outcome evidence automatically drives persisted readiness and autonomy regression
+**Accepted — 2026-09-27.** Outcome Tracking results tied to a Learning Model version are persisted as model evidence and automatically reassessed against that model's Readiness Policy. Model state and evidence survive runtime restarts. Sufficient evidence can promote LEARNING to READY; deterioration can move a previously READY model to DEGRADED and automatically downgrade dependent AUTONOMOUS capabilities to SHADOW. INVALIDATED models are not silently revalidated by ordinary evidence accumulation.
