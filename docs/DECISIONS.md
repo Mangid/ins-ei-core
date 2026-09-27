@@ -86,3 +86,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-024 — Plant, tariff and model changes are versioned dependencies
 **Accepted — 2026-09-27.** Component replacements, topology/configuration changes, tariff changes and sensor changes are recorded as time-bound versions/change events. Learning models declare dependencies on relevant plant/data/tariff context. A relevant change invalidates or reduces readiness only for affected models/capabilities; unrelated learned knowledge remains valid. Historical data is retained with the context under which it was produced.
+
+
+## ADR-025 — Historian is persistent local memory with end-to-end correlation
+**Accepted — 2026-09-27.** Each INS-EI site persists canonical observations, Strategy decisions, physical command outcomes and generic events in a local Historian. Decision-to-command flow carries a correlation ID so future Outcome Tracking, Learning and Value Accounting can reconstruct causality/context. Historical records retain the configuration/context version valid when recorded rather than being reinterpreted as if the current plant/tariff always applied.
