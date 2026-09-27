@@ -49,6 +49,17 @@ apps:
   energy: {enabled: true}
 
 strategy:
-  modules: []
+  modules:
+    - id: thermal_surplus_storage
+      enabled: true
+      config:
+        grid_component: grid
+        storage_component: buffer
+        temperature_point: thermal.temperature_upper
+        max_temperature_c: 75
+        power_to_heat_component: power_to_heat
+        max_power_w: 9000
+        reserve_export_w: 100
+        minimum_power_w: 100
 
 site_rules: []
