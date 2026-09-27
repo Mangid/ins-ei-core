@@ -4,7 +4,9 @@ from html import escape
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.9") -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.10", existing_site=None) -> HTMLResponse:
+    existing_site = existing_site or {}
+    existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
 
     choices = []
@@ -12,9 +14,12 @@ def setup_html(plugin_items=None, version: str = "0.1.9") -> HTMLResponse:
     for item in plugin_items:
         m = item.manifest
         pid = escape(m.id)
+        existing = existing_instances.get(m.id, {})
+        existing_config = existing.get("config", {})
+        checked = " checked" if existing else ""
         caps = " · ".join(m.capabilities)
         choices.append(
-            f'<label class="pluginChoice"><input type="checkbox" data-select-plugin="{pid}" '
+            f'<label class="pluginChoice"><input type="checkbox" data-select-plugin="{pid}"{checked} '
             f'onchange="syncPlugins()">'
             f'<span><b>{escape(m.name)}</b><small>{escape(caps)}</small></span></label>'
         )
@@ -23,7 +28,8 @@ def setup_html(plugin_items=None, version: str = "0.1.9") -> HTMLResponse:
             fid = escape(str(field.get("id", "")))
             label = escape(str(field.get("label", fid)))
             ftype = "password" if field.get("type") == "password" else "text"
-            default = escape(str(field.get("default", "")))
+            raw_value = existing_config.get(field.get("id"), field.get("default", ""))
+            default = escape(str(raw_value if raw_value is not None else ""))
             fields.append(
                 f'<label>{label}</label><input data-plugin="{pid}" data-field="{fid}" '
                 f'type="{ftype}" value="{default}">'
@@ -54,7 +60,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <section class="page active">
 <h2>Grundeinstellungen</h2><p class="muted">Zuerst legen wir nur die Anlage selbst an.</p>
-<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="home-v1"><label>Zeitzone</label><input id="timezone" type="text" value="Europe/Vienna"></div>
+<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"></div>
 </section>
 
 <section class="page">
