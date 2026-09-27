@@ -5,6 +5,7 @@ from typing import Any
 
 from ins_ei.runtime import Runtime
 from ins_ei.strategy import Decision, Intent
+from ins_ei.autonomy import capability_for_command
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,25 @@ class CommandDispatcher:
                 reason=str(exc),
             )
             raise
+        capability = capability_for_command(intent.command)
+        autonomy = self.runtime.autonomy.assess(capability)
+        if not autonomy.allowed:
+            self.runtime.metrics.inc("command_blocked_autonomy_total")
+            self.runtime.historian.record_command(
+                self.runtime.site.site.id, correlation_id, intent.target,
+                intent.command, intent.parameters, "BLOCKED_AUTONOMY",
+                error=autonomy.reason, context_version=self.runtime.context_version,
+            )
+            self.runtime.audit.record(
+                "command.blocked_autonomy",
+                target=intent.target,
+                command=intent.command,
+                capability=capability,
+                mode=autonomy.mode,
+                reason=autonomy.reason,
+            )
+            raise RuntimeError(f"AUTONOMY_BLOCK:{capability}:{autonomy.reason}")
+
         component = self.runtime.graph.component(intent.target)
         if not component.provider:
             raise ValueError(f"COMMAND_TARGET_HAS_NO_PROVIDER:{intent.target}")
