@@ -4,7 +4,12 @@ from fastapi.responses import HTMLResponse
 def setup_html() -> HTMLResponse:
     return HTMLResponse("""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INS-EI Setup</title>
 <style>body{font-family:system-ui;background:#0b0e12;color:#eef2f6;margin:0}main{max-width:900px;margin:auto;padding:28px}.card{background:#131820;border:1px solid #29313b;border-radius:14px;padding:18px;margin:14px 0}input{width:100%;box-sizing:border-box;background:#0b0e12;color:white;border:1px solid #394554;border-radius:8px;padding:10px;margin:6px 0 12px}button{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}button.primary{background:#e8eef6;color:#111}small{color:#9aa7b6}.ok{color:#7bd89d}.bad{color:#ff8585}</style></head>
-<body><main><h1>INS-EI</h1><p>Neue Anlage einrichten · Learning / Shadow</p>
+<body><main>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+<div><h1 style="margin:0">INS-EI</h1><small>V1 · v0.1.2 · Setup</small></div>
+<button onclick="history.length>1?history.back():location.href='./'">← Zurück</button>
+</div>
+<p>Neue Anlage einrichten · Learning / Shadow</p>
 <div class="card"><h3>1 · Anlage</h3><label>Name / ID</label><input id="siteId" value="home-v1"><label>Zeitzone</label><input id="timezone" value="Europe/Vienna"></div>
 <div id="plugins"></div>
 <div class="card"><h3>3 · Speichern</h3><p><small>V1 speichert die Konfiguration lokal. Nach dem Speichern wird INS-EI neu gestartet und baut daraus den SiteGraph.</small></p><button class="primary" onclick="save()">Konfiguration speichern</button><div id="saveResult"></div></div>
