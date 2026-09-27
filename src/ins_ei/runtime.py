@@ -18,6 +18,7 @@ from .metrics import Metrics
 from .timeseries import TimeSeriesStore
 from .historian import Historian
 from .outcomes import OutcomeTracker
+from .model_registry import ModelRegistry
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -51,6 +52,7 @@ class Runtime:
         )
         self.context_version = "site-v1"
         self.last_correlation_id = None
+        self.models = ModelRegistry()
         self.outcomes = OutcomeTracker(
             self.state, self.historian, site.site.id, self.context_version
         )
