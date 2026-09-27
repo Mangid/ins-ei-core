@@ -11,6 +11,9 @@ from .state import StateStore
 from .site_graph import SiteGraph
 from .strategy import StrategyContext
 from .strategy_loader import build_strategy_engine
+from .safety import SafetyController
+from .audit import AuditLog
+from .metrics import Metrics
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -29,6 +32,9 @@ class Runtime:
         self.graph = SiteGraph(site)
         self.strategy_engine = build_strategy_engine(site, self.graph)
         self.last_decision = None
+        self.safety = SafetyController()
+        self.metrics = Metrics()
+        self.audit = AuditLog(site.site.id)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
@@ -45,6 +51,8 @@ class Runtime:
                 "plugin configured | instance=%s plugin=%s version=%s capabilities=%s",
                 cfg.id, cfg.plugin, manifest.version, ",".join(manifest.capabilities),
             )
+            self.metrics.inc("plugin_configured_total")
+            self.audit.record("plugin.configured", instance=cfg.id, plugin=cfg.plugin, version=manifest.version)
 
     def start_instance(self, instance_id: str) -> None:
         managed = self.plugins[instance_id]
@@ -54,10 +62,14 @@ class Runtime:
             managed.status = PluginStatus.RUNNING
             managed.error = None
             log.info("plugin started | instance=%s", instance_id)
+            self.metrics.inc("plugin_start_success_total")
+            self.audit.record("plugin.started", instance=instance_id)
         except Exception as exc:
             managed.status = PluginStatus.FAILED
             managed.error = str(exc)
             log.exception("plugin start failed | instance=%s", instance_id)
+            self.metrics.inc("plugin_start_failed_total")
+            self.audit.record("plugin.start_failed", instance=instance_id, error=str(exc))
 
     def start(self) -> None:
         for instance_id in self.plugins:
@@ -74,10 +86,14 @@ class Runtime:
             managed.status = health.status
             managed.error = None if health.status == PluginStatus.RUNNING else health.message
             log.info("plugin collected | instance=%s points=%d status=%s", instance_id, len(points), managed.status)
+            self.metrics.inc("collect_success_total")
+            self.metrics.inc("points_ingested_total", len(points))
         except Exception as exc:
             managed.status = PluginStatus.DEGRADED
             managed.error = str(exc)
             log.exception("plugin collect failed | instance=%s", instance_id)
+            self.metrics.inc("collect_failed_total")
+            self.audit.record("plugin.collect_failed", instance=instance_id, error=str(exc))
 
     def collect_once(self) -> None:
         for instance_id in self.plugins:
@@ -105,8 +121,22 @@ class Runtime:
                 log.exception("plugin stop failed | instance=%s", instance_id)
 
     def evaluate_strategy(self):
+        self.metrics.inc("strategy_evaluation_total")
+        if self.safety.state().emergency_stop:
+            self.metrics.inc("strategy_blocked_emergency_stop_total")
         self.last_decision = self.strategy_engine.evaluate(
             StrategyContext(self.graph, self.state)
+        )
+        self.audit.record(
+            "strategy.decision",
+            action=self.last_decision.action,
+            strategy=self.last_decision.winning_strategy,
+            priority=self.last_decision.priority.name,
+            reason=self.last_decision.reason,
+            intents=[
+                {"target": i.target, "command": i.command, "parameters": i.parameters}
+                for i in self.last_decision.intents
+            ],
         )
         return self.last_decision
 
