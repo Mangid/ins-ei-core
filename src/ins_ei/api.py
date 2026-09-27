@@ -40,6 +40,28 @@ def create_app(runtime: Runtime) -> FastAPI:
         runtime.audit.record("safety.emergency_stop_reset", reason=reason)
         return {"emergency_stop": False, "reason": state.reason}
 
+    @app.get("/learning/models")
+    def learning_models() -> dict:
+        return {
+            "models": [
+                {
+                    "id": model.id,
+                    "version": model.version,
+                    "capability": model.capability,
+                    "status": model.status,
+                    "reason": model.reason,
+                    "created_at": model.created_at.isoformat(),
+                    "status_changed_at": model.status_changed_at.isoformat(),
+                    "dependencies": [
+                        {"kind": dep.kind, "id": dep.id, "version": dep.version}
+                        for dep in model.dependencies
+                    ],
+                    "metadata": model.metadata,
+                }
+                for model in runtime.models.all()
+            ]
+        }
+
     @app.post("/outcomes/register")
     def register_outcome(
         correlation_id: str,
