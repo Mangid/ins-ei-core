@@ -33,6 +33,17 @@ _DEFINITIONS = [
     PointDefinition("electrical.current_l3", "A", float, 30, "Current phase 3."),
     PointDefinition("electrical.frequency", "Hz", float, 30, "Electrical frequency."),
 
+    # PV and battery: fast control state plus slower capacity information.
+    PointDefinition("pv.generation_power", "W", float, 15, "Current PV generation power, non-negative."),
+    PointDefinition("battery.soc", "%", float, 30, "Battery state of charge from 0 to 100 percent."),
+    PointDefinition("battery.charge_power", "W", float, 15, "Current battery charging power, non-negative."),
+    PointDefinition("battery.discharge_power", "W", float, 15, "Current battery discharging power, non-negative."),
+    PointDefinition("battery.max_charge_power", "W", float, 60, "Current permitted/available maximum battery charge power."),
+    PointDefinition("battery.max_discharge_power", "W", float, 60, "Current permitted/available maximum battery discharge power."),
+    PointDefinition("battery.capacity_usable", "kWh", float, 3600, "Configured/reported usable battery capacity."),
+    PointDefinition("battery.energy_available", "kWh", float, 60, "Estimated usable energy currently available above zero/reference."),
+    PointDefinition("battery.energy_free", "kWh", float, 60, "Estimated currently free usable battery capacity."),
+
     # Thermal state changes more slowly than electrical power.
     PointDefinition("thermal.temperature", "°C", float, 180, "Generic component temperature."),
     PointDefinition("thermal.temperature_upper", "°C", float, 180, "Upper storage temperature."),
