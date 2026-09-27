@@ -26,6 +26,7 @@ class PluginManifest(BaseModel):
     commands: list[str] = Field(default_factory=list)
     permissions: PluginPermissions = Field(default_factory=PluginPermissions)
     notes: dict[str, Any] = Field(default_factory=dict)
+    config_schema: dict[str, Any] = Field(default_factory=dict)
 
 
 class InstalledPlugin(BaseModel):
