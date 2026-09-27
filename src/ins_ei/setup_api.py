@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import time
 
 from fastapi import APIRouter, HTTPException
 
@@ -41,7 +42,14 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
         try:
             plugin.validate_config()
             plugin.start()
-            points = plugin.read_points()
+            # Network plugins such as MQTT may need a short discovery window.
+            points = []
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                points = plugin.read_points()
+                if points:
+                    break
+                time.sleep(0.25)
             health = plugin.health()
             diagnostics = (
                 plugin.diagnostics()
@@ -49,7 +57,10 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
                 else {}
             )
             return {
-                "ok": str(health.status) in {"RUNNING", "PluginStatus.RUNNING"},
+                "ok": (
+                    str(health.status) in {"RUNNING", "PluginStatus.RUNNING"}
+                    and len(points) > 0
+                ),
                 "health": health.model_dump(mode="json"),
                 "points": [p.model_dump(mode="json") for p in points],
                 "diagnostics": diagnostics,
