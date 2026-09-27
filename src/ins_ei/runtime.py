@@ -15,6 +15,7 @@ from .strategy_loader import build_strategy_engine
 from .safety import SafetyController
 from .audit import AuditLog
 from .metrics import Metrics
+from .timeseries import TimeSeriesStore
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -37,6 +38,7 @@ class Runtime:
         self.last_decision = None
         self.safety = SafetyController()
         self.metrics = Metrics()
+        self.timeseries = TimeSeriesStore()
         self.audit = AuditLog(site.site.id)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
