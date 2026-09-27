@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from .runtime import Runtime
+from .site_view import build_site_view
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -81,6 +82,10 @@ def create_app(runtime: Runtime) -> FastAPI:
             ],
             "decided_at": decision.decided_at.isoformat(),
         }
+
+    @app.get("/site/view")
+    def site_view() -> dict:
+        return build_site_view(runtime.graph, runtime.state)
 
     @app.get("/site")
     def site() -> dict:
