@@ -1,0 +1,12 @@
+api_version: ins-ei.plugin/v1
+id: energy-reference
+name: INS-EI Energy Reference
+version: 0.1.0
+kind: test
+entrypoint: ins_ei.plugins.energy_reference:EnergyReferencePlugin
+capabilities:
+  - pv
+  - battery
+permissions:
+  network: false
+  filesystem: false
