@@ -4,6 +4,7 @@ from typing import Any
 
 from ins_ei.site_graph import SiteGraph
 from ins_ei.state import StateStore
+from ins_ei.presentation import presentation_for
 
 
 def build_site_view(graph: SiteGraph, state: StateStore) -> dict[str, Any]:
@@ -21,9 +22,15 @@ def build_site_view(graph: SiteGraph, state: StateStore) -> dict[str, Any]:
             for point in state.snapshot()
             if point.component_id == component.id
         ]
+        presentation = presentation_for(component.kind)
         components.append({
             "id": component.id,
             "kind": component.kind,
+            "presentation": {
+                "role": presentation.role,
+                "shape": presentation.shape,
+                "orientation": presentation.orientation,
+            },
             "provider": component.provider,
             "properties": component.properties,
             "ports": [
