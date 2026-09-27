@@ -99,7 +99,14 @@ def create_app(runtime: Runtime) -> FastAPI:
     def state() -> dict:
         return {
             "site": runtime.site.site.id,
-            "points": [p.model_dump(mode="json") for p in runtime.state.snapshot()],
+            "points": [
+                {
+                    **p.model_dump(mode="json"),
+                    "age_seconds": runtime.state.age_seconds(p),
+                    "stale_after_seconds": runtime.state.stale_after_seconds(p.component_id, p.point),
+                }
+                for p in runtime.state.snapshot()
+            ],
         }
 
     @app.post("/collect")
