@@ -21,7 +21,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.2 · Learning Platform</span></div><button onclick="refresh()">Aktualisieren</button></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.4 · Learning Platform</span></div><button onclick="refresh()">Aktualisieren</button></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -29,14 +29,18 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
  <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div>registrierte Modelle</div></div>
  <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
 </div>
-<div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="site/schema.svg"></iframe></div>
+<div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="./site/schema.svg"></iframe></div>
 <div class="grid">
  <div class="card"><div class="title">Plugin Health</div><table id="plugins"><tbody></tbody></table></div>
  <div class="card"><div class="title">Capability Autonomy</div><table id="autonomy"><tbody></tbody></table></div>
 </div>
 </main>
 <script>
-async function j(url){const r=await fetch(url);return r.json()}
+function api(path){
+ const base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/';
+ return base+path.replace(/^\//,'');
+}
+async function j(url){const r=await fetch(api(url));return r.json()}
 function cls(v){return ['OK','RUNNING','AUTONOMOUS'].includes(v)?'ok':['FAILED','DEGRADED'].includes(v)?'bad':'warn'}
 async function refresh(){
  const [h,s,l,a]=await Promise.all([j('/health'),j('/safety'),j('/learning/models'),j('/autonomy')])
