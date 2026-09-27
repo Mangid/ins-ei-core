@@ -12,6 +12,33 @@ def create_app(runtime: Runtime) -> FastAPI:
     def health() -> dict:
         return runtime.health()
 
+    @app.post("/strategy/evaluate")
+    def evaluate_strategy() -> dict:
+        decision = runtime.evaluate_strategy()
+        return {
+            "action": decision.action,
+            "reason": decision.reason,
+            "winning_strategy": decision.winning_strategy,
+            "priority": decision.priority.name,
+            "confidence": decision.confidence,
+            "intents": [
+                {"target": i.target, "command": i.command, "parameters": i.parameters}
+                for i in decision.intents
+            ],
+            "considered": [
+                {
+                    "strategy": p.strategy,
+                    "action": p.action,
+                    "priority": p.priority.name,
+                    "reason": p.reason,
+                    "confidence": p.confidence,
+                    "evidence": p.evidence,
+                }
+                for p in decision.considered
+            ],
+            "decided_at": decision.decided_at.isoformat(),
+        }
+
     @app.get("/site")
     def site() -> dict:
         return runtime.graph.describe()
