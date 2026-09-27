@@ -29,10 +29,14 @@ class Runtime:
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
+            manifest = self.catalog.manifest(cfg.plugin)
             plugin = self.catalog.create(cfg.plugin, cfg.id, cfg.config)
             plugin.validate_config()
             self.plugins[cfg.id] = ManagedPlugin(plugin=plugin)
-            log.info("plugin configured | instance=%s plugin=%s", cfg.id, cfg.plugin)
+            log.info(
+                "plugin configured | instance=%s plugin=%s version=%s capabilities=%s",
+                cfg.id, cfg.plugin, manifest.version, ",".join(manifest.capabilities),
+            )
 
     def start(self) -> None:
         for instance_id, managed in self.plugins.items():
