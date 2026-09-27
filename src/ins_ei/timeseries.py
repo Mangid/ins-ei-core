@@ -6,6 +6,7 @@ from threading import RLock
 from typing import Any
 
 from ins_ei.models import Quality
+from ins_ei.series_registry import validate_series
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class TimeSeriesStore:
     def replace(self, series: str, slots: list[TimeSlot]) -> None:
         for slot in slots:
             slot.validate()
+            validate_series(slot.series, slot.unit)
             if slot.series != series:
                 raise ValueError(f"TIMESLOT_SERIES_MISMATCH:{slot.series}:{series}")
         ordered = sorted(slots, key=lambda s: s.start)
