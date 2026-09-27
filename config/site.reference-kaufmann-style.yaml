@@ -1,0 +1,46 @@
+api_version: ins-ei.site/v1
+site:
+  id: reference-kaufmann-style
+  timezone: Europe/Vienna
+
+plugin_instances:
+  - id: oekofen_main
+    plugin: oekofen
+    config:
+      host: 192.0.2.11
+      password: CHANGE_ME
+      components: {boiler: pellet_boiler, buffer: buffer, dhw: dhw}
+  - id: mypv_main
+    plugin: mypv
+    config:
+      host: 192.0.2.21
+      component_id: electric_heat
+
+components:
+  - {id: pellet_boiler, kind: HEAT_GENERATOR, provider: oekofen_main}
+  - {id: buffer, kind: BUFFER, provider: oekofen_main, properties: {volume_l: 600}}
+  - {id: dhw, kind: DHW, provider: oekofen_main, properties: {volume_l: 300}}
+  - {id: electric_heat, kind: POWER_TO_HEAT, provider: mypv_main, properties: {nominal_power_kw: 9}}
+
+relations:
+  - {from: pellet_boiler, to: buffer, type: HEATS}
+  - {from: pellet_boiler, to: dhw, type: HEATS}
+  - {from: electric_heat, to: buffer, type: HEATS}
+
+constraints: []
+
+apps:
+  heating: {enabled: true}
+  energy: {enabled: true}
+
+strategy:
+  modules:
+    - id: dhw_minimum
+      enabled: true
+      config:
+        dhw_component: dhw
+        minimum_c: 48
+        heat_source: pellet_boiler
+        command: dhw.request_once
+
+site_rules: []
