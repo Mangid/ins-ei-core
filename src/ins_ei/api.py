@@ -39,6 +39,10 @@ def create_app(runtime: Runtime) -> FastAPI:
         runtime.audit.record("safety.emergency_stop_reset", reason=reason)
         return {"emergency_stop": False, "reason": state.reason}
 
+    @app.get("/history/trace/{correlation_id}")
+    def history_trace(correlation_id: str) -> dict:
+        return runtime.historian.correlation(runtime.site.site.id, correlation_id)
+
     @app.get("/timeseries")
     def timeseries() -> dict:
         return {
