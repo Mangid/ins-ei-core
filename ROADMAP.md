@@ -49,3 +49,17 @@ TEST/PROD separation, fleet overview, version inventory, health checks, remote u
 - duplicating Home Assistant
 - individual customer workflows in Core
 - premature generalization of every future case
+
+
+## Phase 7 — Historian, Learning and capability autonomy
+- Historian for canonical state, forecasts, decisions, commands and outcomes
+- correlation IDs from decision → command → observed result
+- Outcome Tracking and prediction-error measurement
+- versioned Learning Model registry
+- learning-readiness/confidence framework
+- capability-specific LEARNING / SHADOW / ASSISTED / AUTONOMOUS state
+- automatic autonomy regression when confidence degrades
+- simple statistical plant models before advanced ML
+- continuous learning during autonomous operation
+
+**Exit criterion:** INS-EI can demonstrate from historical evidence why a capability is considered ready for autonomous optimization, measure its prediction error, and safely return it to Shadow/Assisted operation when confidence deteriorates.
