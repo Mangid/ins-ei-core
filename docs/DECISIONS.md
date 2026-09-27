@@ -35,3 +35,10 @@
 
 ## ADR-011 — Strategy behavior is configured by Site, not customer identity
 **Accepted — 2026-09-27.** Reusable Strategy modules are instantiated from the Site configuration and validated against SiteGraph. Site-specific thresholds, selected components and permitted canonical commands are parameters. Customer/site names must never select algorithm branches in reusable Strategy code.
+
+
+## ADR-012 — No physical control without central Safety Gate
+**Accepted — 2026-09-27.** Every normal physical command must pass through the Command Dispatcher and central SafetyController immediately before plugin execution. An active INS-EI software emergency stop blocks normal outgoing commands regardless of their origin. This software interlock complements and never replaces required hardware safety systems.
+
+## ADR-013 — Decisions and writes are auditable and observable
+**Accepted — 2026-09-27.** Strategy decisions, physical command attempts/results, safety-state changes and important plugin lifecycle failures are first-class audit events. Runtime metrics are part of the Core architecture, not optional application diagnostics.
