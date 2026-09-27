@@ -4,7 +4,7 @@ from html import escape
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.13", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.14", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
@@ -81,34 +81,92 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
-let step=0; const pages=[...document.querySelectorAll('.page')], dots=[...document.querySelectorAll('.stepDot')]; let discoveredPoints=[]; let discoveredComponents=[];
-function show(){{pages.forEach((x,i)=>x.classList.toggle('active',i===step));dots.forEach((x,i)=>x.classList.toggle('active',i===step));prev.disabled=step===0;next.style.visibility=step===pages.length-1?'hidden':'visible'}}
-function move(n){{step=Math.max(0,Math.min(pages.length-1,step+n));show()}}
-function selectedIds(){{return [...document.querySelectorAll('[data-select-plugin]:checked')].map(x=>x.dataset.selectPlugin)}}
-function syncPlugins(){{const ids=selectedIds();document.querySelectorAll('[data-config-plugin]').forEach(x=>x.hidden=!ids.includes(x.dataset.configPlugin));noneSelected.hidden=ids.length>0}}
-function cfg(id){{let o={{}};document.querySelectorAll('[data-plugin="'+id+'"]').forEach(x=>{{if(x.value!=='')o[x.dataset.field]=(x.dataset.field==='port'||x.dataset.field==='unit_id')?Number(x.value):x.value}});return o}}
-async function testPlugin(id){{const el=document.getElementById('r_'+id);el.textContent=' teste…';try{{const r=await fetch('setup/test-plugin',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id+'_main',config:cfg(id)}})}});const d=await r.json();el.className=r.ok?'ok':'bad';el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');if(r.ok){{discoveredPoints=discoveredPoints.filter(x=>x.plugin!==id);d.points.forEach(p=>discoveredPoints.push({{plugin:id,component:p.component_id,point:p.point}}));renderDiscovered();proposeRelations()}}}}catch(e){{el.className='bad';el.textContent=' ✗ '+e}}}}
-function renderDiscovered(){{const uniq=[...new Set(discoveredPoints.map(x=>x.component))];document.getElementById('discoveredComponents').innerHTML=uniq.length?uniq.map(x=>'<div>✓ '+x+'</div>').join(''):'Noch keine Komponenten erkannt.'}}
-async function save(){{const ids=selectedIds();const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));const components=[...new Set(discoveredPoints.map(x=>x.component))].map(id=>({{id,kind:'GENERIC'}}));const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components,relations:[],connections:[],constraints:[],apps:{{}},strategy:{{modules:[]}},site_rules:[]}};const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});const d=await r.json();saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler'}}
-
+let step=0;
+let discoveredComponents=[];
 let relations=[];
+const pages=[...document.querySelectorAll('.page')];
+const dots=[...document.querySelectorAll('.stepDot')];
 const limitDefaults={{
- battery:[['battery_min_soc','Mindest-SOC',20,'%'],['battery_max_charge_current','Max. Ladestrom',100,'A'],['battery_max_discharge_current','Max. Entladestrom',100,'A']],
- buffer:[['buffer_max_temperature','Maximaltemperatur',75,'°C']],
- dhw:[['dhw_min_temperature','Absolute Mindesttemperatur',45,'°C'],['dhw_comfort_temperature','Komforttemperatur',55,'°C']],
- power_to_heat:[['power_to_heat_max_power','Maximale Leistung',9,'kW']]
+  battery:[['battery_min_soc','Mindest-SOC',20,'%'],['battery_max_charge_current','Max. Ladestrom',100,'A'],['battery_max_discharge_current','Max. Entladestrom',100,'A']],
+  buffer:[['buffer_max_temperature','Maximaltemperatur',75,'°C']],
+  dhw:[['dhw_min_temperature','Absolute Mindesttemperatur',45,'°C'],['dhw_comfort_temperature','Komforttemperatur',55,'°C']],
+  power_to_heat:[['power_to_heat_max_power','Maximale Leistung',9,'kW']]
 }};
-function typedMap(){{const m=new Map();discoveredComponents.filter(x=>x.ready).forEach(x=>m.set(x.id,x));return m}}
-function proposeRelations(){{
- const m=typedMap(); const has=id=>m.has(id); const add=(a,b,t)=>{{if(has(a)&&has(b)&&!relations.some(x=>x.from===a&&x.to===b&&x.type===t))relations.push({{from:a,to:b,type:t}})}};
- add('pellet_boiler','buffer','HEATS');add('pellet_boiler','dhw','HEATS');add('power_to_heat','buffer','HEATS');add('buffer','hk1','SUPPLIES');add('buffer','hk2','SUPPLIES');add('grid','power_to_heat','SUPPLIES');add('pv','battery','CHARGES');add('pv','grid','CONNECTED_TO');add('battery','grid','CONNECTED_TO');
- renderTopology();renderLimits();updateStart();
+
+function show(){{
+  pages.forEach((x,i)=>x.classList.toggle('active',i===step));
+  dots.forEach((x,i)=>x.classList.toggle('active',i===step));
+  document.getElementById('prev').disabled=step===0;
+  document.getElementById('next').style.visibility=step===pages.length-1?'hidden':'visible';
 }}
-function renderTopology(){{const ids=[...typedMap().keys()];const opts=ids.map(x=>'<option>'+x+'</option>').join('');relFrom.innerHTML=opts;relTo.innerHTML=opts;topologyEditor.innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0"><span>'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>'}}
-function addRelation(){{if(relFrom.value&&relTo.value&&relFrom.value!==relTo.value)relations.push({{from:relFrom.value,to:relTo.value,type:relType.value}});renderTopology();updateStart()}}
-function removeRelation(i){{relations.splice(i,1);renderTopology();updateStart()}}
-function renderLimits(){{const m=typedMap();let rows=[];for(const id of m.keys()){{for(const d of (limitDefaults[id]||[])){{rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+d[2]+'"><small>'+d[3]+'</small></div>')}}limitsEditor.innerHTML=rows.length?rows.join('') :'<div class="card muted">Für die erkannten Komponenten sind noch keine Pflichtgrenzen definiert.</div>'}}
-function buildConstraints(){{return [...document.querySelectorAll('[data-limit-id]')].map(x=>({{id:x.dataset.limitId,type:x.dataset.limitId.includes('min')?'MIN_VALUE':'MAX_VALUE',target:x.dataset.limitTarget,value:Number(x.value),unit:x.dataset.limitUnit}}))}}
-function updateStart(){{const typed=discoveredComponents.filter(x=>x.ready).length;const unknown=discoveredComponents.filter(x=>!x.ready).length;const tested=discoveredComponents.length>0;const confirmed=document.getElementById('limitsConfirmed')?.checked||false;const ok=tested&&typed>0&&unknown===0&&confirmed;commissioningCheck.innerHTML='<div>'+(tested?'✓':'✗')+' Geräte getestet</div><div>'+(unknown===0?'✓':'✗')+' Komponenten typisiert'+(unknown?' ('+unknown+' offen)':'')+'</div><div>'+(confirmed?'✓':'✗')+' Grenzen bestätigt</div><div>✓ Autonomie: Default-Deny / Shadow</div>';startButton.disabled=!ok}}
-syncPlugins();show();
+function move(n){{step=Math.max(0,Math.min(pages.length-1,step+n));show();}}
+function selectedIds(){{return [...document.querySelectorAll('[data-select-plugin]:checked')].map(x=>x.dataset.selectPlugin);}}
+function syncPlugins(){{
+  const ids=selectedIds();
+  document.querySelectorAll('[data-config-plugin]').forEach(x=>x.hidden=!ids.includes(x.dataset.configPlugin));
+  document.getElementById('noneSelected').hidden=ids.length>0;
+}}
+function cfg(id){{
+  const o={{}};
+  document.querySelectorAll('[data-plugin="'+id+'"]').forEach(x=>{{
+    if(x.value!=='') o[x.dataset.field]=(x.dataset.field==='port'||x.dataset.field==='unit_id')?Number(x.value):x.value;
+  }});
+  return o;
+}}
+async function testPlugin(id){{
+  const el=document.getElementById('r_'+id); el.textContent=' teste…';
+  try{{
+    const r=await fetch('setup/test-plugin',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id.replaceAll('-','_')+'_main',config:cfg(id)}})}});
+    const d=await r.json();
+    el.className=r.ok?'ok':'bad';
+    el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
+    if(r.ok){{
+      discoveredComponents=discoveredComponents.filter(x=>x.plugin!==id);
+      (d.components||[]).forEach(x=>discoveredComponents.push({{...x,plugin:id}}));
+      renderDiscovered(); proposeRelations();
+    }}
+  }}catch(e){{el.className='bad';el.textContent=' ✗ '+e;}}
+}}
+function typedMap(){{const m=new Map();discoveredComponents.filter(x=>x.ready).forEach(x=>m.set(x.id,x));return m;}}
+function renderDiscovered(){{
+  const byId=new Map(); discoveredComponents.forEach(x=>byId.set(x.id,x));
+  const rows=[...byId.values()];
+  document.getElementById('discoveredComponents').innerHTML=rows.length?rows.map(x=>'<div class="'+(x.ready?'ok':'bad')+'">'+(x.ready?'✓ ':'⚠ ')+x.id+' → '+(x.kind||'Typ unbekannt')+'</div>').join(''):'Noch keine Komponenten erkannt.';
+}}
+function proposeRelations(){{
+  const m=typedMap(), has=id=>m.has(id);
+  const add=(a,b,t)=>{{if(has(a)&&has(b)&&!relations.some(x=>x.from===a&&x.to===b&&x.type===t))relations.push({{from:a,to:b,type:t}});}};
+  add('pellet_boiler','buffer','HEATS'); add('pellet_boiler','dhw','HEATS'); add('power_to_heat','buffer','HEATS');
+  add('buffer','hk1','SUPPLIES'); add('buffer','hk2','SUPPLIES'); add('grid','power_to_heat','SUPPLIES');
+  add('pv','battery','CHARGES'); add('pv','grid','CONNECTED_TO'); add('battery','grid','CONNECTED_TO');
+  renderTopology(); renderLimits(); updateStart();
+}}
+function renderTopology(){{
+  const ids=[...typedMap().keys()], opts=ids.map(x=>'<option>'+x+'</option>').join('');
+  document.getElementById('relFrom').innerHTML=opts; document.getElementById('relTo').innerHTML=opts;
+  document.getElementById('topologyEditor').innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0"><span>'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>';
+}}
+function addRelation(){{const a=relFrom.value,b=relTo.value;if(a&&b&&a!==b)relations.push({{from:a,to:b,type:relType.value}});renderTopology();updateStart();}}
+function removeRelation(i){{relations.splice(i,1);renderTopology();updateStart();}}
+function renderLimits(){{
+  const m=typedMap(), rows=[];
+  for(const id of m.keys()) for(const d of (limitDefaults[id]||[])) rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+d[2]+'"><small>'+d[3]+'</small></div>');
+  document.getElementById('limitsEditor').innerHTML=rows.length?rows.join(''):'<div class="card muted">Für die erkannten Komponenten sind noch keine Pflichtgrenzen definiert.</div>';
+}}
+function buildConstraints(){{return [...document.querySelectorAll('[data-limit-id]')].map(x=>({{id:x.dataset.limitId,type:x.dataset.limitId.includes('min')?'MIN_VALUE':'MAX_VALUE',target:x.dataset.limitTarget,value:Number(x.value),unit:x.dataset.limitUnit}}));}}
+function updateStart(){{
+  const typed=discoveredComponents.filter(x=>x.ready).length, unknown=discoveredComponents.filter(x=>!x.ready).length, tested=discoveredComponents.length>0, confirmed=document.getElementById('limitsConfirmed')?.checked||false;
+  const ok=tested&&typed>0&&unknown===0&&confirmed;
+  document.getElementById('commissioningCheck').innerHTML='<div>'+(tested?'✓':'✗')+' Geräte getestet</div><div>'+(unknown===0?'✓':'✗')+' Komponenten typisiert'+(unknown?' ('+unknown+' offen)':'')+'</div><div>'+(confirmed?'✓':'✗')+' Grenzen bestätigt</div><div>✓ Autonomie: Default-Deny / Shadow</div>';
+  document.getElementById('startButton').disabled=!ok;
+}}
+async function save(){{
+  const ids=selectedIds();
+  const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));
+  const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
+  const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
+  const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
+  const d=await r.json(); saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler';
+}}
+syncPlugins(); show();
 </script></main></body></html>""")
