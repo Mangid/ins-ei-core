@@ -11,6 +11,28 @@ from ins_ei.plugins.fronius_transport import FroniusTransport
 log = logging.getLogger("ins_ei.plugin.fronius")
 
 
+
+def _latest_archive_value(channel: Any) -> float | None:
+    """Extract newest numeric Fronius archive sample from one channel."""
+    if not isinstance(channel, dict):
+        return None
+    values = channel.get("Values")
+    if isinstance(values, dict):
+        candidates = []
+        for key, value in values.items():
+            try:
+                candidates.append((int(key), float(value)))
+            except (TypeError, ValueError):
+                continue
+        return max(candidates, key=lambda x: x[0])[1] if candidates else None
+    if isinstance(values, list):
+        for value in reversed(values):
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                continue
+    return None
+
 def _value(node):
     if isinstance(node, dict):
         return node.get("Value")
@@ -97,6 +119,29 @@ class FroniusPlugin(Plugin):
                         observed_at=now, source=source,
                     ))
 
+
+            # Optional per-input/string archive telemetry. The plugin exposes
+            # generic PV inputs only; orientation/roof semantics belong to Site commissioning.
+            archive_error = None
+            try:
+                archive = self.transport.archive_strings_today()
+                archive_data = archive.get("Body", {}).get("Data", {})
+                inverter_archive = archive_data.get(f"inverter/{device_id}", {})
+                channels = inverter_archive.get("Data", {}) if isinstance(inverter_archive, dict) else {}
+                for input_no in (1, 2):
+                    current = _latest_archive_value(channels.get(f"Current_DC_String_{input_no}"))
+                    voltage = _latest_archive_value(channels.get(f"Voltage_DC_String_{input_no}"))
+                    component = f"{prefix}_input_{input_no}"
+                    if current is not None:
+                        points.append(Point(component_id=component, point="electrical.current_dc", value=current, unit="A", quality=Quality.GOOD, observed_at=now, source=source))
+                    if voltage is not None:
+                        points.append(Point(component_id=component, point="electrical.voltage_dc", value=voltage, unit="V", quality=Quality.GOOD, observed_at=now, source=source))
+                    if current is not None and voltage is not None:
+                        points.append(Point(component_id=component, point="pv.generation_power", value=max(0.0, current * voltage), unit="W", quality=Quality.GOOD, observed_at=now, source=source))
+            except Exception as exc:
+                archive_error = str(exc)
+                log.info("archive string telemetry unavailable | instance=%s error=%s", self.instance_id, exc)
+
             flow = self.transport.power_flow()
             flow_data = flow.get("Body", {}).get("Data", {})
             three_phase = self.transport.inverter_three_phase(device_id).get("Body", {}).get("Data", {})
@@ -111,6 +156,7 @@ class FroniusPlugin(Plugin):
                 "three_phase_keys": sorted(three_phase.keys()),
                 "cumulation_keys": sorted(cumulation.keys()),
                 "minmax_keys": sorted(minmax.keys()),
+                "archive_error": archive_error,
                 "points": len(points),
             }
             self.last_error = None
