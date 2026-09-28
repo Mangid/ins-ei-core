@@ -33,6 +33,20 @@ class FroniusTransport:
             "DataCollection": "CommonInverterData",
         })
 
+    def inverter_cumulation(self, device_id: int = 1) -> dict:
+        return self._get("GetInverterRealtimeData.cgi", {
+            "Scope": "Device",
+            "DeviceId": int(device_id),
+            "DataCollection": "CumulationInverterData",
+        })
+
+    def inverter_minmax(self, device_id: int = 1) -> dict:
+        return self._get("GetInverterRealtimeData.cgi", {
+            "Scope": "Device",
+            "DeviceId": int(device_id),
+            "DataCollection": "MinMaxInverterData",
+        })
+
     def inverter_three_phase(self, device_id: int = 1) -> dict:
         return self._get("GetInverterRealtimeData.cgi", {
             "Scope": "Device",
