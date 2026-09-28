@@ -19,7 +19,15 @@ def setup_html(plugin_items=None, version: str = "0.1.19", existing_site=None) -
         m = item.manifest
         pid = escape(m.id)
         existing = existing_instances.get(m.id, {})
-        existing_config = existing.get("config", {})
+        existing_config = dict(existing.get("config", {}))
+        # One-time V1 migration: legacy Victron MQTT setup -> local Modbus TCP.
+        if m.id == "victron-gx" and "portal_id" in existing_config:
+            existing_config.pop("portal_id", None)
+            if int(existing_config.get("port", 1883)) == 1883:
+                existing_config["port"] = 502
+            existing_config.setdefault("battery_unit_id", 225)
+            existing_config.setdefault("grid_unit_id", 30)
+            existing_config.setdefault("pv_unit_ids", "22,23")
         checked = " checked" if existing else ""
         caps = " · ".join(m.capabilities)
         choices.append(
