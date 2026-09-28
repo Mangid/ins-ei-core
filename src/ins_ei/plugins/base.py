@@ -30,5 +30,8 @@ class Plugin(ABC):
     @abstractmethod
     def read_points(self) -> list[Point]: ...
 
+    def discover_components(self, points: list[Point]) -> list[dict[str, Any]]:
+        return []
+
     def execute(self, command: str, parameters: dict[str, Any] | None = None) -> Any:
         raise NotImplementedError(f"{self.instance_id} does not support commands")
