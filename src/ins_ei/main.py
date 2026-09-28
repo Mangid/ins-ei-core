@@ -33,6 +33,7 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.collect_once()
         runtime.evaluate_strategy()
         runtime.evaluate_outcomes()
+        runtime.learning.fit_passive_baselines()
 
 
 def main() -> None:
