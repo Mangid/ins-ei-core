@@ -35,7 +35,7 @@ def _infer_components(points) -> list[dict[str, Any]]:
             if any(x.startswith("battery.") for x in point_names):
                 kind = "BATTERY"
             elif any(x.startswith("pv.") for x in point_names):
-                kind = "PV"
+                kind = "PV_INVERTER" if any(x.startswith("electrical.") for x in point_names) else "PV"
             elif any(x.startswith("grid.") for x in point_names):
                 kind = "GRID"
             elif any(x.startswith("electrical.") for x in point_names) and component_id.startswith("grid"):
