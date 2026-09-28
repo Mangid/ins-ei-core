@@ -171,6 +171,22 @@ class FroniusPlugin(Plugin):
             log.warning("solar api read failed | instance=%s error=%s", self.instance_id, exc)
             raise
 
+
+    def discover_components(self, points: list[Point]) -> list[dict[str, Any]]:
+        prefix = str(self.config.get("component_prefix") or self.instance_id)
+        present = {p.component_id for p in points}
+        result = []
+        candidates = [
+            (f"{prefix}_pv", "PV"),
+            (f"{prefix}_inverter", "PV_INVERTER"),
+            (f"{prefix}_input_1", "PV_INPUT"),
+            (f"{prefix}_input_2", "PV_INPUT"),
+        ]
+        for component_id, kind in candidates:
+            if component_id in present:
+                result.append({"id": component_id, "kind": kind, "ready": True})
+        return result
+
     def diagnostics(self) -> dict[str, Any]:
         return {"last_error": self.last_error, **self.last_diagnostics}
 
