@@ -50,6 +50,15 @@ class ComponentConfig(BaseModel):
     sensors: list[SensorPositionConfig] = Field(default_factory=list)
 
 
+class CommissioningConfig(BaseModel):
+    status: str = "DRAFT"
+    confirmed_at: str | None = None
+    confirmed_by: str | None = None
+    topology_confirmed: bool = False
+    constraints_confirmed: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+
 class SiteConfig(BaseModel):
     api_version: str
     site: SiteInfo
@@ -61,6 +70,7 @@ class SiteConfig(BaseModel):
     apps: dict[str, Any] = Field(default_factory=dict)
     strategy: dict[str, Any] = Field(default_factory=dict)
     site_rules: list[dict[str, Any]] = Field(default_factory=list)
+    commissioning: CommissioningConfig = Field(default_factory=CommissioningConfig)
 
 
 def load_site(path: str | Path) -> SiteConfig:
