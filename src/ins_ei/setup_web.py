@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.23", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.24", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -66,6 +66,11 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 .pluginChoice{{display:flex;gap:12px;align-items:flex-start;background:#131820;border:1px solid #29313b;border-radius:12px;padding:16px;cursor:pointer}}
 .pluginChoice input{{margin-top:4px;transform:scale(1.25)}}.pluginChoice span{{display:flex;flex-direction:column;gap:5px}}
 .ok{{color:#7bd89d}}.bad{{color:#ff8585}}
+.relationRow{{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 10px;border-bottom:1px solid #2b3440;border-radius:7px}}
+.relationRow:nth-child(even){{background:#171d25}}
+.relationRow:last-child{{border-bottom:0}}
+.relationText{{min-width:0;line-height:1.45}}
+.relationRemove{{flex:0 0 auto}}
 </style></head><body><main>
 <header><div><h1 style="margin:0">INS-EI</h1><small>V1 · v{escape(version)} · Inbetriebnahme</small></div><button onclick="history.length>1?history.back():location.href='./'">← Zurück</button></header>
 <div class="steps"><span class="stepDot active">1 Grundeinstellungen</span><span class="stepDot">2 Plugins</span><span class="stepDot">3 Konfiguration</span><span class="stepDot">4 Komponenten</span><span class="stepDot">5 Anlage</span><span class="stepDot">6 Grenzen</span><span class="stepDot">7 Start</span></div>
@@ -177,7 +182,7 @@ function proposeRelations(){{
 function renderTopology(){{
   const ids=[...typedMap().keys()], opts=ids.map(x=>'<option>'+x+'</option>').join('');
   document.getElementById('relFrom').innerHTML=opts; document.getElementById('relTo').innerHTML=opts;
-  document.getElementById('topologyEditor').innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0"><span>'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>';
+  document.getElementById('topologyEditor').innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div class="relationRow"><span class="relationText">'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button class="relationRemove" title="'+r.from+' → '+r.type+' → '+r.to+' entfernen" onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>';
 }}
 function addRelation(){{const a=relFrom.value,b=relTo.value;if(a&&b&&a!==b)relations.push({{from:a,to:b,type:relType.value}});renderTopology();updateStart();}}
 function removeRelation(i){{relations.splice(i,1);renderTopology();updateStart();}}
