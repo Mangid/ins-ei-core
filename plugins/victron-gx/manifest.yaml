@@ -1,14 +1,14 @@
 api_version: ins-ei.plugin/v1
 id: victron-gx
 name: Victron GX
-version: 0.1.0
+version: 0.2.0
 kind: device
 entrypoint: ins_ei.plugins.victron_gx:VictronGXPlugin
 capabilities: [battery, pv, electrical_telemetry]
 config_schema:
   fields:
     - {id: host, label: Cerbo GX IP / Host, type: text, required: true}
-    - {id: port, label: MQTT Port, type: number, default: 1883}
-    - {id: portal_id, label: VRM Portal ID, type: text, required: true}
+    - {id: port, label: Modbus TCP Port, type: number, default: 502}
+    - {id: system_unit_id, label: System Unit ID, type: number, default: 100}
 permissions: {network: true, filesystem: false}
-notes: {control: read_only_shadow_v1}
+notes: {transport: modbus_tcp, control: read_only_shadow_v1}
