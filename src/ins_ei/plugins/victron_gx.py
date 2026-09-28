@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import time
+import logging
 from datetime import datetime
 from threading import Lock
 from typing import Any
 
 import paho.mqtt.client as mqtt
+
+log = logging.getLogger("ins_ei.plugin.victron_gx")
 
 from ins_ei.models import PluginHealth, PluginStatus, Point, Quality, Source
 from ins_ei.plugins.base import Plugin
@@ -23,6 +26,8 @@ class VictronGXPlugin(Plugin):
         self.last_error: str | None = None
         self.values: dict[str, tuple[Any, datetime]] = {}
         self.lock = Lock()
+        self.message_count = 0
+        self.last_wait_log = 0.0
 
     def validate_config(self) -> None:
         for key in ("host", "portal_id"):
@@ -54,15 +59,19 @@ class VictronGXPlugin(Plugin):
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code != 0:
             self.last_error = f"VICTRON_MQTT_CONNECT:{reason_code}"
+            log.warning("mqtt connect failed | instance=%s reason=%s", self.instance_id, reason_code)
             return
         self.connected = True
         portal = self.config["portal_id"]
+        log.info("mqtt connected | instance=%s host=%s port=%s portal_id=%s",
+                 self.instance_id, self.config.get("host"), self.config.get("port", 1883), portal)
         client.subscribe(f"N/{portal}/system/+/Dc/Battery/Soc")
         client.subscribe(f"N/{portal}/system/+/Dc/Battery/Power")
         client.subscribe(f"N/{portal}/system/+/Dc/Pv/Power")
         client.subscribe(f"N/{portal}/system/+/Ac/Grid/L1/Power")
         client.subscribe(f"N/{portal}/system/+/Ac/Grid/L2/Power")
         client.subscribe(f"N/{portal}/system/+/Ac/Grid/L3/Power")
+        log.info("mqtt subscribed | instance=%s portal_id=%s topics=6", self.instance_id, portal)
         # Request retained/current values from Venus MQTT.
         client.publish(f"R/{portal}/system/0/Serial", "{}")
         self.last_error = None
@@ -77,6 +86,10 @@ class VictronGXPlugin(Plugin):
             if value is not None:
                 with self.lock:
                     self.values[message.topic] = (value, datetime.now().astimezone())
+                    self.message_count += 1
+                    count = self.message_count
+                if count <= 10 or count % 100 == 0:
+                    log.info("mqtt message | instance=%s count=%d topic=%s", self.instance_id, count, message.topic)
         except Exception as exc:
             self.last_error = f"VICTRON_MQTT_PAYLOAD:{exc}"
 
@@ -98,6 +111,14 @@ class VictronGXPlugin(Plugin):
 
     def read_points(self) -> list[Point]:
         source = Source(plugin_instance=self.instance_id)
+        if self.connected and not self.values:
+            now_mono = time.monotonic()
+            if now_mono - self.last_wait_log >= 30:
+                log.warning(
+                    "waiting for telemetry | instance=%s portal_id=%s messages=%d",
+                    self.instance_id, self.config.get("portal_id"), self.message_count,
+                )
+                self.last_wait_log = now_mono
         battery = self.config.get("battery_component", "battery")
         pv = self.config.get("pv_component", "pv")
         specs = [
