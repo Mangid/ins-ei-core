@@ -7,7 +7,10 @@ from fastapi.responses import HTMLResponse
 
 def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
-    existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
+    existing_instances = existing_site.get('plugin_instances', [])
+    instances_by_plugin = {}
+    for instance in existing_instances:
+        instances_by_plugin.setdefault(instance.get("plugin"), []).append(instance)
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
     persisted_relations_json = json.dumps(existing_site.get("relations", []), ensure_ascii=False)
     persisted_constraints_json = json.dumps(existing_site.get("constraints", []), ensure_ascii=False)
@@ -18,7 +21,8 @@ def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -
     for item in plugin_items:
         m = item.manifest
         pid = escape(m.id)
-        existing = existing_instances.get(m.id, {})
+        plugin_existing = instances_by_plugin.get(m.id, [])
+        existing = plugin_existing[0] if plugin_existing else {}
         existing_config = dict(existing.get("config", {}))
         # One-time V1 migration: legacy Victron MQTT setup -> local Modbus TCP.
         if m.id == "victron-gx" and "portal_id" in existing_config:
@@ -28,7 +32,7 @@ def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -
             existing_config.setdefault("battery_unit_id", 225)
             existing_config.setdefault("grid_unit_id", 30)
             existing_config.setdefault("pv_unit_ids", "22,23")
-        checked = " checked" if existing else ""
+        checked = " checked" if plugin_existing else ""
         caps = " · ".join(m.capabilities)
         choices.append(
             f'<label class="pluginChoice"><input type="checkbox" data-select-plugin="{pid}"{checked} '
