@@ -21,6 +21,7 @@ ALLOWED_COMPONENT_KINDS = {
     "GRID",
     "PV",
     "PV_INVERTER",
+    "PV_INPUT",
     "BATTERY",
     "HEAT_GENERATOR",
     "BUFFER",
