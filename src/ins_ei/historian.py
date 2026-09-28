@@ -241,6 +241,56 @@ class Historian:
             ))
 
 
+
+    def observation_coverage(self, site_id: str) -> list[dict[str, Any]]:
+        """Summarize persisted observation coverage per canonical signal."""
+        with self._connection() as db:
+            rows = db.execute("""
+                SELECT component_id, point, unit,
+                       COUNT(*) AS samples,
+                       MIN(observed_at) AS first_observed_at,
+                       MAX(observed_at) AS last_observed_at,
+                       SUM(CASE WHEN quality IN ('GOOD','Quality.GOOD') THEN 1 ELSE 0 END) AS good_samples,
+                       COUNT(DISTINCT plugin_instance) AS providers
+                FROM observations
+                WHERE site_id=?
+                GROUP BY component_id, point, unit
+                ORDER BY component_id, point
+            """, (site_id,)).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            samples = int(item["samples"] or 0)
+            good = int(item["good_samples"] or 0)
+            item["good_ratio"] = (good / samples) if samples else 0.0
+            if item["first_observed_at"] and item["last_observed_at"]:
+                first = datetime.fromisoformat(item["first_observed_at"])
+                last = datetime.fromisoformat(item["last_observed_at"])
+                item["duration_seconds"] = max(0.0, (last - first).total_seconds())
+            else:
+                item["duration_seconds"] = 0.0
+            result.append(item)
+        return result
+
+    def observation_summary(self, site_id: str) -> dict[str, Any]:
+        coverage = self.observation_coverage(site_id)
+        samples = sum(int(x["samples"]) for x in coverage)
+        first_values = [x["first_observed_at"] for x in coverage if x["first_observed_at"]]
+        last_values = [x["last_observed_at"] for x in coverage if x["last_observed_at"]]
+        first = min(first_values) if first_values else None
+        last = max(last_values) if last_values else None
+        duration = 0.0
+        if first and last:
+            duration = max(0.0, (datetime.fromisoformat(last) - datetime.fromisoformat(first)).total_seconds())
+        return {
+            "signals": len(coverage),
+            "samples": samples,
+            "first_observed_at": first,
+            "last_observed_at": last,
+            "duration_seconds": duration,
+            "coverage": coverage,
+        }
+
     def save_model(self, model, readiness_policy: dict[str, Any] | None = None) -> None:
         dependencies = [
             {"kind": d.kind, "id": d.id, "version": d.version}
