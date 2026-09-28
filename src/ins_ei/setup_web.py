@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.20", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.21", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -73,7 +73,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <div class="actions" style="margin-bottom:18px"><button id="prevTop" onclick="move(-1)" disabled>← Zurück</button><button id="nextTop" class="primary" onclick="move(1)">Weiter →</button></div>
 <section class="page active">
 <h2>Grundeinstellungen</h2><p class="muted">Zuerst legen wir nur die Anlage selbst an.</p>
-<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('latitude') or ''))}"><label>Längengrad (optional)</label><input id="longitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('longitude') or ''))}"></div>
+<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('latitude') is None else str(existing_site.get('site', {}).get('location', {}).get('latitude')))}"><label>Längengrad (optional)</label><input id="longitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('longitude') is None else str(existing_site.get('site', {}).get('location', {}).get('longitude')))}"></div>
 </section>
 
 <section class="page">
