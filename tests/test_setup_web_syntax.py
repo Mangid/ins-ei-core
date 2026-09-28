@@ -22,3 +22,17 @@ def test_setup_wizard_has_working_navigation_contract():
     assert "function move(n)" in body
     assert "function show()" in body
     assert "kind:'GENERIC'" not in body
+
+
+def test_setup_restores_persisted_site_graph():
+    from ins_ei.setup_web import setup_html
+    site = {
+        "site": {"id": "test-lab", "timezone": "Europe/Vienna"},
+        "components": [{"id": "buffer", "kind": "BUFFER", "provider": "oekofen_main"}],
+        "relations": [{"from": "buffer", "to": "dhw", "type": "SUPPLIES"}],
+        "constraints": [{"id": "buffer_max_temperature", "type": "MAX_VALUE", "target": "buffer", "value": 78, "unit": "°C"}],
+    }
+    body = setup_html([], version="test", existing_site=site).body.decode()
+    assert '"id": "buffer"' in body
+    assert '"type": "SUPPLIES"' in body
+    assert '"value": 78' in body
