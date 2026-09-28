@@ -176,7 +176,8 @@ class LearningCoordinator:
         for model in self.models.all():
             if model.status != ModelStatus.LEARNING:
                 continue
-            model.metadata["phase"] = "PASSIVE_BASELINE"
+            if model.metadata.get("phase") in {None, "OBSERVATION", "PASSIVE_BASELINE"}:
+                model.metadata["phase"] = "PASSIVE_BASELINE"
             model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
             if model.id == "thermal-baseline":
                 model.metadata["fit"] = {k: v for k, v in fitted.items() if k in {"buffer_temperature", "dhw_temperature"}}
