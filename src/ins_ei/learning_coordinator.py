@@ -67,8 +67,9 @@ class LearningCoordinator:
         kinds = {c.kind for c in site.components}
         definitions = [
             ("thermal-baseline", "thermal_behavior", {"BUFFER", "DHW", "HEAT_GENERATOR"}),
-            ("electrical-baseline", "electrical_behavior", {"GRID", "PV", "BATTERY"}),
+            ("electrical-baseline", "electrical_behavior", {"GRID", "PV", "PV_INVERTER", "PV_INPUT", "BATTERY"}),
             ("battery-baseline", "battery_behavior", {"BATTERY"}),
+            ("pv-orientation-baseline", "pv_orientation_behavior", {"PV_INPUT"}),
         ]
         for model_id, capability, required_kinds in definitions:
             if model_id in existing or not (kinds & required_kinds):
@@ -77,6 +78,17 @@ class LearningCoordinator:
                 ModelDependency(kind="component", id=c.id)
                 for c in site.components if c.kind in required_kinds
             ]
+            pv_orientation = {}
+            if model_id == "pv-orientation-baseline":
+                for component in site.components:
+                    if component.kind != "PV_INPUT":
+                        continue
+                    orientation = component.properties.get("orientation")
+                    if not orientation:
+                        continue
+                    entry = pv_orientation.setdefault(orientation, {"capacity_kwp": 0.0, "inputs": []})
+                    entry["inputs"].append(component.id)
+                    entry["capacity_kwp"] += float(component.properties.get("capacity_kwp") or 0.0)
             model = LearningModelRecord(
                 id=model_id,
                 version="1",
@@ -89,6 +101,7 @@ class LearningCoordinator:
                     "commissioning_status": site.commissioning.status,
                     "topology_confirmed": site.commissioning.topology_confirmed,
                     "constraints_confirmed": site.commissioning.constraints_confirmed,
+                    "pv_orientations": pv_orientation if model_id == "pv-orientation-baseline" else {},
                 },
                 reason="Collecting historical observations before model fitting.",
             )
