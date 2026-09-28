@@ -32,6 +32,7 @@ class ManagedPlugin:
     error: str | None = None
     last_successful_read_at: datetime | None = None
     last_read_attempt_at: datetime | None = None
+    started_at: datetime | None = None
 
 
 class Runtime:
@@ -88,7 +89,8 @@ class Runtime:
         managed.status = PluginStatus.STARTING
         try:
             managed.plugin.start()
-            managed.status = PluginStatus.RUNNING
+            managed.started_at = datetime.now().astimezone()
+            managed.status = PluginStatus.STARTING
             managed.error = None
             log.info("plugin started | instance=%s", instance_id)
             self.metrics.inc("plugin_start_success_total")
@@ -106,7 +108,7 @@ class Runtime:
 
     def collect_instance(self, instance_id: str) -> None:
         managed = self.plugins[instance_id]
-        if managed.status not in {PluginStatus.RUNNING, PluginStatus.DEGRADED}:
+        if managed.status not in {PluginStatus.STARTING, PluginStatus.RUNNING, PluginStatus.DEGRADED}:
             return
         managed.last_read_attempt_at = datetime.now().astimezone()
         try:
@@ -115,8 +117,18 @@ class Runtime:
             self.historian.record_points(self.site.site.id, points, self.context_version)
             managed.last_successful_read_at = datetime.now().astimezone()
             health = managed.plugin.health()
-            managed.status = health.status
-            managed.error = None if health.status == PluginStatus.RUNNING else health.message
+            if points:
+                managed.status = PluginStatus.RUNNING if health.status != PluginStatus.FAILED else health.status
+                managed.error = None if managed.status == PluginStatus.RUNNING else health.message
+            elif health.status == PluginStatus.FAILED:
+                managed.status = PluginStatus.FAILED
+                managed.error = health.message
+            elif managed.last_successful_read_at is None:
+                managed.status = PluginStatus.STARTING
+                managed.error = None
+            else:
+                managed.status = health.status
+                managed.error = None if health.status == PluginStatus.RUNNING else health.message
             log.info("plugin collected | instance=%s points=%d status=%s", instance_id, len(points), managed.status)
             self.metrics.inc("collect_success_total")
             self.metrics.inc("points_ingested_total", len(points))
@@ -215,5 +227,6 @@ class Runtime:
                 self.metrics.set(f"plugin.{key}.last_read_age_seconds", read_age)
         failed = any(v.status == PluginStatus.FAILED for v in self.plugins.values())
         degraded = any(v.status == PluginStatus.DEGRADED for v in self.plugins.values())
-        overall = "FAILED" if failed else "DEGRADED" if degraded else "OK"
+        starting = any(v.status == PluginStatus.STARTING for v in self.plugins.values())
+        overall = "FAILED" if failed else "DEGRADED" if degraded else "STARTING" if starting else "OK"
         return {"status": overall, "site": self.site.site.id, "plugins": statuses}
