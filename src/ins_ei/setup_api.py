@@ -102,7 +102,11 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
                 ),
                 "health": health.model_dump(mode="json"),
                 "points": [p.model_dump(mode="json") for p in points],
-                "components": _infer_components(points),
+                "components": (
+                    plugin.discover_components(points)
+                    if plugin.discover_components(points)
+                    else _infer_components(points)
+                ),
                 "diagnostics": diagnostics,
             }
         except Exception as exc:
