@@ -242,6 +242,33 @@ class Historian:
 
 
 
+
+    def numeric_series(self, site_id: str, component_id: str, point: str, limit: int = 10000) -> list[dict[str, Any]]:
+        """Return GOOD numeric observations in chronological order."""
+        with self._connection() as db:
+            rows = db.execute("""
+                SELECT observed_at, value_json, unit, quality, plugin_instance
+                FROM observations
+                WHERE site_id=? AND component_id=? AND point=?
+                  AND quality IN ('GOOD','Quality.GOOD')
+                ORDER BY observed_at DESC LIMIT ?
+            """, (site_id, component_id, point, int(limit))).fetchall()
+        result = []
+        for row in reversed(rows):
+            try:
+                value = json.loads(row["value_json"])
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    continue
+                result.append({
+                    "observed_at": row["observed_at"],
+                    "value": float(value),
+                    "unit": row["unit"],
+                    "plugin_instance": row["plugin_instance"],
+                })
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+        return result
+
     def observation_coverage(self, site_id: str) -> list[dict[str, Any]]:
         """Summarize persisted observation coverage per canonical signal."""
         with self._connection() as db:
