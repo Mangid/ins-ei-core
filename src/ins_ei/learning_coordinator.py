@@ -162,6 +162,92 @@ class LearningCoordinator:
 
         return {"fitted": True, "models": fitted}
 
+
+    def fit_thermal_context_baseline(self) -> dict:
+        """Learn context-separated buffer temperature rates without control."""
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"]}
+
+        buffer_rows = self.historian.numeric_series(
+            self.site_id, "buffer", "thermal.temperature_upper", limit=20000
+        )
+        pellet_rows = self.historian.numeric_series(
+            self.site_id, "pellet_boiler", "power.modulation", limit=20000
+        )
+        p2h_rows = self.historian.numeric_series(
+            self.site_id, "power_to_heat", "power.electrical", limit=20000
+        )
+        outdoor_rows = self.historian.numeric_series(
+            self.site_id, "weather", "weather.outdoor_temperature", limit=20000
+        )
+
+        def nearest(rows, ts, max_age_s=90):
+            if not rows:
+                return None
+            best = min(rows, key=lambda r: abs((datetime.fromisoformat(r["observed_at"]) - ts).total_seconds()))
+            age = abs((datetime.fromisoformat(best["observed_at"]) - ts).total_seconds())
+            return best["value"] if age <= max_age_s else None
+
+        buckets = {
+            "PASSIVE_COOLING": [],
+            "PELLET_HEATING": [],
+            "POWER_TO_HEAT": [],
+            "MIXED": [],
+        }
+        outdoor_by_bucket = {k: [] for k in buckets}
+        for a, b in zip(buffer_rows, buffer_rows[1:]):
+            ta = datetime.fromisoformat(a["observed_at"])
+            tb = datetime.fromisoformat(b["observed_at"])
+            dt_h = (tb - ta).total_seconds() / 3600.0
+            if dt_h <= 0 or dt_h > 0.10:
+                continue
+            rate = (b["value"] - a["value"]) / dt_h
+            pellet = nearest(pellet_rows, tb)
+            p2h = nearest(p2h_rows, tb)
+            outdoor = nearest(outdoor_rows, tb, 600)
+            pellet_on = pellet is not None and pellet > 1.0
+            p2h_on = p2h is not None and p2h > 100.0
+            if pellet_on and p2h_on:
+                bucket = "MIXED"
+            elif pellet_on:
+                bucket = "PELLET_HEATING"
+            elif p2h_on:
+                bucket = "POWER_TO_HEAT"
+            else:
+                bucket = "PASSIVE_COOLING"
+            buckets[bucket].append(rate)
+            if outdoor is not None:
+                outdoor_by_bucket[bucket].append(outdoor)
+
+        fit = {}
+        for bucket, rates in buckets.items():
+            if not rates:
+                continue
+            ordered = sorted(rates)
+            fit[bucket] = {
+                "samples": len(rates),
+                "mean_delta_c_per_h": sum(rates) / len(rates),
+                "median_delta_c_per_h": ordered[len(ordered)//2],
+                "min_delta_c_per_h": ordered[0],
+                "max_delta_c_per_h": ordered[-1],
+                "mean_outdoor_c": (
+                    sum(outdoor_by_bucket[bucket]) / len(outdoor_by_bucket[bucket])
+                    if outdoor_by_bucket[bucket] else None
+                ),
+            }
+
+        try:
+            model = self.models.get("thermal-baseline")
+        except ValueError:
+            return {"fitted": False, "reason": "thermal-baseline model missing"}
+        model.metadata["phase"] = "THERMAL_CONTEXT_BASELINE"
+        model.metadata["thermal_context_fit"] = fit
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        model.reason = "Context-separated passive thermal baseline; no control authority."
+        self.historian.save_model(model)
+        return {"fitted": True, "contexts": fit}
+
     def register_model(
         self,
         model: LearningModelRecord,
