@@ -34,6 +34,8 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.evaluate_strategy()
         runtime.evaluate_outcomes()
         runtime.learning.fit_passive_baselines()
+        runtime.learning.fit_thermal_context_baseline()
+        runtime.learning.fit_dhw_baseline()
 
 
 def main() -> None:
