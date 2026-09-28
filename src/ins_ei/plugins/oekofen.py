@@ -34,6 +34,10 @@ class OekofenPlugin(Plugin):
         self.last_error: str | None = None
         self.last_unmapped: dict[str, Any] = {}
 
+    @property
+    def min_poll_interval_seconds(self) -> float:
+        return float(self.config.get("poll_interval_seconds", 30.0))
+
     def validate_config(self) -> None:
         for key in ("host", "password"):
             if not str(self.config.get(key, "")).strip():
