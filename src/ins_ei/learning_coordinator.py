@@ -412,6 +412,43 @@ class LearningCoordinator:
         self.historian.save_model(model)
         return {"fitted": True, "orientations": orientation_fit, "inputs": input_fit}
 
+
+    def fit_electrical_baseline(self) -> dict:
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"]}
+        specs = {
+            "pv_total": ("pv", "pv.generation_power"),
+            "grid_import_shrdzm": ("grid", "grid.import_power"),
+            "grid_export_shrdzm": ("grid", "grid.export_power"),
+            "grid_import_victron": ("grid_victron", "grid.import_power"),
+            "grid_export_victron": ("grid_victron", "grid.export_power"),
+            "battery_soc": ("battery", "battery.soc"),
+            "battery_charge": ("battery", "battery.charge_power"),
+            "battery_discharge": ("battery", "battery.discharge_power"),
+        }
+        fit = {}
+        for name, (component, point) in specs.items():
+            rows = self.historian.numeric_series(self.site_id, component, point, limit=50000)
+            values = [r["value"] for r in rows]
+            if values:
+                fit[name] = {
+                    "samples": len(values),
+                    "minimum": min(values),
+                    "maximum": max(values),
+                    "mean": sum(values)/len(values),
+                }
+        try:
+            model = self.models.get("electrical-baseline")
+        except ValueError:
+            return {"fitted": False, "reason": "electrical-baseline model missing"}
+        model.metadata["phase"] = "ELECTRICAL_BASELINE"
+        model.metadata["fit"] = fit
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        model.reason = "Passive electrical/provider baseline; no control authority."
+        self.historian.save_model(model)
+        return {"fitted": True, "fit": fit}
+
     def register_model(
         self,
         model: LearningModelRecord,
