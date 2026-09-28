@@ -323,6 +323,87 @@ class LearningCoordinator:
         self.historian.save_model(model)
         return {"fitted": True, "dhw": fit}
 
+
+    def fit_pv_orientation_baseline(self) -> dict:
+        """Learn per-input and per-orientation PV yield from commissioned Site metadata."""
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"]}
+        try:
+            model = self.models.get("pv-orientation-baseline")
+        except ValueError:
+            return {"fitted": False, "reason": "pv-orientation-baseline model missing"}
+
+        orientations = model.metadata.get("pv_orientations") or {}
+        if not orientations:
+            return {"fitted": False, "reason": "No commissioned PV input orientations."}
+
+        input_capacity = {}
+        for orientation, meta in orientations.items():
+            inputs = meta.get("inputs") or []
+            total_capacity = float(meta.get("capacity_kwp") or 0.0)
+            # Capacity per input is recovered from model dependencies only when
+            # there is one input; multi-input orientation capacity remains an
+            # aggregate until explicit per-input capacities are stored below.
+            if len(inputs) == 1:
+                input_capacity[inputs[0]] = total_capacity
+
+        # Explicit per-input capacities are stored in model metadata on first fit
+        # by matching commissioned dependency metadata when available.
+        commissioned_inputs = model.metadata.get("commissioned_inputs") or {}
+        for cid, meta in commissioned_inputs.items():
+            if meta.get("capacity_kwp"):
+                input_capacity[cid] = float(meta["capacity_kwp"])
+
+        input_fit = {}
+        orientation_fit = {}
+        for orientation, meta in orientations.items():
+            orientation_samples = []
+            orientation_energy_wh = 0.0
+            orientation_capacity = float(meta.get("capacity_kwp") or 0.0)
+            for component_id in meta.get("inputs") or []:
+                rows = self.historian.numeric_series(
+                    self.site_id, component_id, "pv.generation_power", limit=50000
+                )
+                values = [max(0.0, r["value"]) for r in rows]
+                energy_wh = 0.0
+                for a, b in zip(rows, rows[1:]):
+                    ta = datetime.fromisoformat(a["observed_at"])
+                    tb = datetime.fromisoformat(b["observed_at"])
+                    dt_h = (tb - ta).total_seconds() / 3600.0
+                    if 0 < dt_h <= 0.1:
+                        energy_wh += ((max(0.0, a["value"]) + max(0.0, b["value"])) / 2.0) * dt_h
+                cap = input_capacity.get(component_id)
+                input_fit[component_id] = {
+                    "samples": len(values),
+                    "maximum_w": max(values) if values else None,
+                    "mean_w": (sum(values) / len(values)) if values else None,
+                    "energy_wh_observed": energy_wh,
+                    "maximum_w_per_kwp": (max(values) / cap) if values and cap else None,
+                }
+                orientation_samples.extend(values)
+                orientation_energy_wh += energy_wh
+            orientation_fit[orientation] = {
+                "inputs": list(meta.get("inputs") or []),
+                "capacity_kwp": orientation_capacity,
+                "samples": len(orientation_samples),
+                "maximum_input_sample_w": max(orientation_samples) if orientation_samples else None,
+                "mean_input_sample_w": (sum(orientation_samples) / len(orientation_samples)) if orientation_samples else None,
+                "energy_wh_observed": orientation_energy_wh,
+                "energy_wh_per_kwp": (
+                    orientation_energy_wh / orientation_capacity
+                    if orientation_capacity > 0 else None
+                ),
+            }
+
+        model.metadata["phase"] = "PV_ORIENTATION_BASELINE"
+        model.metadata["input_fit"] = input_fit
+        model.metadata["orientation_fit"] = orientation_fit
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        model.reason = "Passive PV orientation baseline from GOOD input telemetry; no control authority."
+        self.historian.save_model(model)
+        return {"fitted": True, "orientations": orientation_fit, "inputs": input_fit}
+
     def register_model(
         self,
         model: LearningModelRecord,
