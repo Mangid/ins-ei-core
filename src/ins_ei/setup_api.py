@@ -139,6 +139,10 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
         verified = SiteConfig.model_validate(persisted)
         return {
             "saved": True,
+            "saved_plugins": [
+                {"plugin": x.plugin, "config_keys": sorted(x.config.keys())}
+                for x in verified.plugin_instances
+            ],
             "verified": True,
             "path": str(path),
             "restart_required": True,
