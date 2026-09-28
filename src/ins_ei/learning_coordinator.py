@@ -83,7 +83,13 @@ class LearningCoordinator:
                 capability=capability,
                 status=ModelStatus.LEARNING,
                 dependencies=dependencies,
-                metadata={"phase": "OBSERVATION", "algorithm": "baseline-v1"},
+                metadata={
+                    "phase": "OBSERVATION",
+                    "algorithm": "baseline-v1",
+                    "commissioning_status": site.commissioning.status,
+                    "topology_confirmed": site.commissioning.topology_confirmed,
+                    "constraints_confirmed": site.commissioning.constraints_confirmed,
+                },
                 reason="Collecting historical observations before model fitting.",
             )
             self.models.register(model)
