@@ -63,9 +63,17 @@ class FroniusPlugin(Plugin):
 
             pac = _value(body.get("PAC"))
             if pac is not None:
+                pac_value = max(0.0, float(pac))
                 points.append(Point(
                     component_id=f"{prefix}_pv", point="pv.generation_power",
-                    value=max(0.0, float(pac)), unit="W", quality=Quality.GOOD,
+                    value=pac_value, unit="W", quality=Quality.GOOD,
+                    observed_at=now, source=source,
+                ))
+                # The physical inverter remains a distinct component while the
+                # logical PV component can be aggregated separately.
+                points.append(Point(
+                    component_id=f"{prefix}_inverter", point="pv.generation_power",
+                    value=pac_value, unit="W", quality=Quality.GOOD,
                     observed_at=now, source=source,
                 ))
 
