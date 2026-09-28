@@ -12,6 +12,7 @@ from ins_ei.model_registry import (
     ModelRegistry,
     ModelStatus,
 )
+from ins_ei.config import SiteConfig
 from ins_ei.readiness import (
     OutcomeEvidence,
     ReadinessAssessment,
@@ -58,6 +59,58 @@ class LearningCoordinator:
                 self.policies[model.id] = ReadinessPolicy(
                     **json.loads(row["readiness_policy_json"])
                 )
+
+
+    def ensure_baseline_models(self, site: SiteConfig) -> None:
+        """Register observation-only V1 models from the configured SiteGraph."""
+        existing = {m.id for m in self.models.all()}
+        kinds = {c.kind for c in site.components}
+        definitions = [
+            ("thermal-baseline", "thermal_behavior", {"BUFFER", "DHW", "HEAT_GENERATOR"}),
+            ("electrical-baseline", "electrical_behavior", {"GRID", "PV", "BATTERY"}),
+            ("battery-baseline", "battery_behavior", {"BATTERY"}),
+        ]
+        for model_id, capability, required_kinds in definitions:
+            if model_id in existing or not (kinds & required_kinds):
+                continue
+            dependencies = [
+                ModelDependency(kind="component", id=c.id)
+                for c in site.components if c.kind in required_kinds
+            ]
+            model = LearningModelRecord(
+                id=model_id,
+                version="1",
+                capability=capability,
+                status=ModelStatus.LEARNING,
+                dependencies=dependencies,
+                metadata={"phase": "OBSERVATION", "algorithm": "baseline-v1"},
+                reason="Collecting historical observations before model fitting.",
+            )
+            self.models.register(model)
+            self.historian.save_model(model)
+
+    def baseline_status(self) -> dict:
+        summary = self.historian.observation_summary(self.site_id)
+        duration_h = summary["duration_seconds"] / 3600.0
+        if duration_h < 6:
+            phase = "COLLECTING"
+            reason = f"Collecting baseline data ({duration_h:.1f} h / 6 h minimum first assessment)."
+        elif duration_h < 24:
+            phase = "BASELINE_READY"
+            reason = f"Initial baseline available after {duration_h:.1f} h; continue collecting for daily behavior."
+        else:
+            phase = "LEARNING"
+            reason = f"{duration_h:.1f} h historical coverage available for model fitting."
+        return {
+            "phase": phase,
+            "reason": reason,
+            "duration_hours": duration_h,
+            "signals": summary["signals"],
+            "samples": summary["samples"],
+            "first_observed_at": summary["first_observed_at"],
+            "last_observed_at": summary["last_observed_at"],
+            "coverage": summary["coverage"],
+        }
 
     def register_model(
         self,
