@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.15", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.17", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -64,7 +64,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <section class="page active">
 <h2>Grundeinstellungen</h2><p class="muted">Zuerst legen wir nur die Anlage selbst an.</p>
-<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"></div>
+<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('latitude') or ''))}"><label>Längengrad (optional)</label><input id="longitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('longitude') or ''))}"></div>
 </section>
 
 <section class="page">
@@ -173,7 +173,7 @@ async function save(){{
   const ids=selectedIds();
   const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));
   const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
-  const payload={{site_id:siteId.value,timezone:timezone.value,plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
+  const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
   const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
   const d=await r.json(); saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler';
 }}
