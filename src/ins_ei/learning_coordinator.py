@@ -79,6 +79,7 @@ class LearningCoordinator:
                 for c in site.components if c.kind in required_kinds
             ]
             pv_orientation = {}
+            commissioned_inputs = {}
             if model_id == "pv-orientation-baseline":
                 for component in site.components:
                     if component.kind != "PV_INPUT":
@@ -86,9 +87,15 @@ class LearningCoordinator:
                     orientation = component.properties.get("orientation")
                     if not orientation:
                         continue
+                    capacity = float(component.properties.get("capacity_kwp") or 0.0)
                     entry = pv_orientation.setdefault(orientation, {"capacity_kwp": 0.0, "inputs": []})
                     entry["inputs"].append(component.id)
-                    entry["capacity_kwp"] += float(component.properties.get("capacity_kwp") or 0.0)
+                    entry["capacity_kwp"] += capacity
+                    commissioned_inputs[component.id] = {
+                        "label": component.properties.get("label"),
+                        "orientation": orientation,
+                        "capacity_kwp": capacity,
+                    }
             model = LearningModelRecord(
                 id=model_id,
                 version="1",
@@ -102,6 +109,7 @@ class LearningCoordinator:
                     "topology_confirmed": site.commissioning.topology_confirmed,
                     "constraints_confirmed": site.commissioning.constraints_confirmed,
                     "pv_orientations": pv_orientation if model_id == "pv-orientation-baseline" else {},
+                    "commissioned_inputs": commissioned_inputs if model_id == "pv-orientation-baseline" else {},
                 },
                 reason="Collecting historical observations before model fitting.",
             )
