@@ -11,6 +11,10 @@ class Plugin(ABC):
         self.instance_id = instance_id
         self.config = config
 
+    @property
+    def min_poll_interval_seconds(self) -> float:
+        return float(self.config.get("poll_interval_seconds", 0.0))
+
     @abstractmethod
     def validate_config(self) -> None: ...
 
