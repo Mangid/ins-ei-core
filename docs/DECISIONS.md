@@ -110,3 +110,7 @@ Autonomy is granted per capability/model rather than by one global site switch. 
 
 ## ADR-030 — TEST is mandatory before every PROD release
 **Accepted — 2026-09-28.** INS-EI development/integration testing runs on a dedicated TEST installation and separate Home Assistant App slug/data. A Core revision may enter the PROD App only after the documented release gate passes on TEST. Production customer/house installations are not development environments. Release identity is the exact tested Core Git SHA, persistent plant data is preserved across updates/rollback, and an INS-EI failure must remain isolated from Home Assistant/Supervisor operation.
+
+
+## ADR-031 — Fachlich bestätigte Site ist die Wahrheit für Learning
+**Accepted — 2026-09-28.** INS-EI trennt generische Core-/Pluginlogik, automatisch erkannte Anlageninformationen und fachlich bestätigtes Site-Wissen. Discovery darf Komponenten und Beziehungen vorschlagen, überschreibt aber keine gespeicherte Inbetriebnehmerentscheidung. `site.yaml.commissioning` dokumentiert den Bestätigungsstatus von Topologie und harten Constraints. Learning darf historische Beobachtungen auch vor Bestätigung sammeln; Modelle, deren Interpretation von Hydraulik/Topologie abhängt, müssen den Commissioning-Status als Provenienz führen und dürfen unbestätigtes Anlagenwissen nicht als fachliche Wahrheit behandeln.
