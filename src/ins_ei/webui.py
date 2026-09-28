@@ -24,7 +24,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.29 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.30 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -44,7 +44,12 @@ function api(path){
  const base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/';
  return base+path.replace(/^\//,'');
 }
-async function j(url){const r=await fetch(api(url));return r.json()}
+async function j(url){
+ const r=await fetch(api(url));
+ const text=await r.text();
+ if(!r.ok) throw new Error(url+' HTTP '+r.status+' '+text.slice(0,160));
+ try{return JSON.parse(text)}catch(e){throw new Error(url+' invalid JSON: '+text.slice(0,160))}
+}
 function cls(v){return ['OK','RUNNING','AUTONOMOUS'].includes(v)?'ok':['FAILED','DEGRADED'].includes(v)?'bad':'warn'}
 
 function fmt(v,d=2){return v==null?'–':(typeof v==='number'?v.toFixed(d):v)}
@@ -79,14 +84,31 @@ function modelDetail(m){
 function showModel(id){const m=window.learningModelData.find(x=>x.id===id);modelDetails.innerHTML=m?modelDetail(m):''}
 
 async function refresh(){
- const [h,s,l,ls,a]=await Promise.all([j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy')])
- health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site
- safety.textContent=s.emergency_stop?'NOT-AUS AKTIV':'Freigegeben'; safety.className='big '+(s.emergency_stop?'bad':'ok'); safetyReason.textContent=s.reason||''
- models.textContent=l.models.length+' · '+ls.phase; learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale'; auto.textContent=a.capabilities.length
- plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('')
- window.learningModelData=l.models;
- learningModels.innerHTML=l.models.map(x=>'<tr class="modelRow" onclick="showModel(\''+x.id+'\')"><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('')
- autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('')
+ const results=await Promise.allSettled([
+   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy')
+ ]);
+ const [rh,rs,rl,rls,ra]=results;
+ if(rh.status==='fulfilled'){
+   const h=rh.value; health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site;
+   plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('');
+ } else {health.textContent='API FEHLER';health.className='big bad';site.textContent=rh.reason.message}
+ if(rs.status==='fulfilled'){
+   const s=rs.value;safety.textContent=s.emergency_stop?'NOT-AUS AKTIV':'Freigegeben';safety.className='big '+(s.emergency_stop?'bad':'ok');safetyReason.textContent=s.reason||'';
+ } else {safety.textContent='API FEHLER';safety.className='big bad';safetyReason.textContent=rs.reason.message}
+ if(rl.status==='fulfilled'){
+   const l=rl.value;window.learningModelData=l.models;
+   learningModels.innerHTML=l.models.map(x=>'<tr class="modelRow" onclick="showModel(\''+x.id+'\')"><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('');
+   models.textContent=l.models.length;
+ } else {models.textContent='API FEHLER';models.className='big bad';learningDetail.textContent=rl.reason.message}
+ if(rls.status==='fulfilled'){
+   const ls=rls.value;
+   if(rl.status==='fulfilled') models.textContent=rl.value.models.length+' · '+ls.phase;
+   learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale';
+ } else {learningDetail.textContent=rls.reason.message}
+ if(ra.status==='fulfilled'){
+   const a=ra.value;auto.textContent=a.capabilities.length;
+   autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('');
+ } else {auto.textContent='API FEHLER';auto.className='big bad';autonomy.innerHTML='<tr><td>'+ra.reason.message+'</td></tr>'}
 }
 refresh(); setInterval(refresh,10000)
 </script></body></html>""")
