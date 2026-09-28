@@ -8,6 +8,7 @@ from .site_view import build_site_view
 from .schema_renderer import render_svg
 from .outcomes import OutcomeExpectation
 from .webui import index_html
+from .setup_web import setup_html
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -16,6 +17,14 @@ def create_app(runtime: Runtime) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def index():
         return index_html()
+
+    @app.get("/config", response_class=HTMLResponse)
+    def configuration():
+        return setup_html(
+            runtime.catalog.installed().values(),
+            version="0.1.16",
+            existing_site=runtime.site.model_dump(mode="json"),
+        )
 
     @app.get("/health")
     def health() -> dict:
