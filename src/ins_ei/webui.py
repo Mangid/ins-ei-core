@@ -21,7 +21,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.26 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.28 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -32,6 +32,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 <div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="./site/schema.svg"></iframe></div>
 <div class="grid">
  <div class="card"><div class="title">Plugin Health</div><table id="plugins"><tbody></tbody></table></div>
+ <div class="card"><div class="title">Learning Modelle</div><table id="learningModels"><tbody></tbody></table></div>
  <div class="card"><div class="title">Capability Autonomy</div><table id="autonomy"><tbody></tbody></table></div>
 </div>
 </main>
@@ -48,6 +49,7 @@ async function refresh(){
  safety.textContent=s.emergency_stop?'NOT-AUS AKTIV':'Freigegeben'; safety.className='big '+(s.emergency_stop?'bad':'ok'); safetyReason.textContent=s.reason||''
  models.textContent=l.models.length+' · '+ls.phase; learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale'; auto.textContent=a.capabilities.length
  plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('')
+ learningModels.innerHTML=l.models.map(x=>'<tr><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('')
  autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('')
 }
 refresh(); setInterval(refresh,10000)
