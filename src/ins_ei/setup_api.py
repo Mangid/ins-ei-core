@@ -130,6 +130,7 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
             "apps": payload.get("apps") or {},
             "strategy": payload.get("strategy") or {"modules": []},
             "site_rules": payload.get("site_rules") or [],
+            "commissioning": payload.get("commissioning") or {},
         }
         # Validate the exact document before touching the persistent Site.
         validated = SiteConfig.model_validate(site)
