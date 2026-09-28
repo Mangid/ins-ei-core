@@ -196,12 +196,22 @@ class LearningCoordinator:
             "MIXED": [],
         }
         outdoor_by_bucket = {k: [] for k in buckets}
-        for a, b in zip(buffer_rows, buffer_rows[1:]):
+        # Thermal dynamics are evaluated over multi-minute windows so sensor
+        # quantisation/noise at the 10 s collection cadence does not dominate.
+        for i, a in enumerate(buffer_rows):
             ta = datetime.fromisoformat(a["observed_at"])
+            b = None
+            for candidate in buffer_rows[i+1:]:
+                dt_s = (datetime.fromisoformat(candidate["observed_at"]) - ta).total_seconds()
+                if 300 <= dt_s <= 900:
+                    b = candidate
+                    break
+                if dt_s > 900:
+                    break
+            if b is None:
+                continue
             tb = datetime.fromisoformat(b["observed_at"])
             dt_h = (tb - ta).total_seconds() / 3600.0
-            if dt_h <= 0 or dt_h > 0.10:
-                continue
             rate = (b["value"] - a["value"]) / dt_h
             pellet = nearest(pellet_rows, tb)
             p2h = nearest(p2h_rows, tb)
