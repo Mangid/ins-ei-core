@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.22", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.23", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -105,6 +105,7 @@ function api(path){{
 let step=0;
 let discoveredComponents={persisted_components_json}.map(x=>({{...x,ready:true,plugin:(x.provider||'').replace(/_main$/,'').replaceAll('_','-')}}));
 let relations={persisted_relations_json};
+const hadPersistedTopology=relations.length>0;
 const pages=[...document.querySelectorAll('.page')];
 const dots=[...document.querySelectorAll('.stepDot')];
 const persistedConstraints={persisted_constraints_json};
@@ -159,9 +160,15 @@ function renderDiscovered(){{
 }}
 function proposeRelations(){{
   const m=typedMap(), has=id=>m.has(id);
+  // Once an installer has saved a topology, never re-add generic thermal
+  // guesses that may have been deliberately removed. Only enrich it with
+  // relations involving newly discovered electrical components.
+  const allowThermalDefaults=!hadPersistedTopology;
   const add=(a,b,t)=>{{if(has(a)&&has(b)&&!relations.some(x=>x.from===a&&x.to===b&&x.type===t))relations.push({{from:a,to:b,type:t}});}};
-  add('pellet_boiler','buffer','HEATS'); add('pellet_boiler','dhw','HEATS'); add('power_to_heat','buffer','HEATS');
-  add('buffer','hk1','SUPPLIES'); add('buffer','hk2','SUPPLIES'); add('grid','power_to_heat','SUPPLIES');
+  if(allowThermalDefaults){{
+    add('pellet_boiler','buffer','HEATS'); add('pellet_boiler','dhw','HEATS'); add('power_to_heat','buffer','HEATS');
+    add('buffer','hk1','SUPPLIES'); add('buffer','hk2','SUPPLIES'); add('grid','power_to_heat','SUPPLIES');
+  }}
   add('pv_inverter_1','pv','SUPPLIES'); add('pv_inverter_2','pv','SUPPLIES');
   add('pv','battery','CHARGES'); add('pv','grid','CONNECTED_TO'); add('battery','grid','CONNECTED_TO');
   add('grid_victron','grid','CONNECTED_TO');
