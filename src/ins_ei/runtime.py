@@ -61,6 +61,7 @@ class Runtime:
             site.site.id, self.historian, self.models, self.autonomy
         )
         self.learning.restore()
+        self.learning.ensure_baseline_models(site)
         self.outcomes = OutcomeTracker(
             self.state, self.historian, site.site.id, self.context_version
         )
