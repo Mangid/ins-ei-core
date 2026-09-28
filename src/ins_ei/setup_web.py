@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.26", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = existing_site.get('plugin_instances', [])
     instances_by_plugin = {}
@@ -39,22 +39,62 @@ def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -
             f'onchange="syncPlugins()">'
             f'<span><b>{escape(m.name)}</b><small>{escape(caps)}</small></span></label>'
         )
-        fields = []
+        def render_instance(instance, index):
+            instance_config = dict(instance.get("config", {}))
+            if m.id == "victron-gx" and "portal_id" in instance_config:
+                instance_config.pop("portal_id", None)
+                if int(instance_config.get("port", 1883)) == 1883:
+                    instance_config["port"] = 502
+                instance_config.setdefault("battery_unit_id", 225)
+                instance_config.setdefault("grid_unit_id", 30)
+                instance_config.setdefault("pv_unit_ids", "22,23")
+            instance_id = escape(str(instance.get("id") or f"{m.id.replace('-', '_')}_{index+1}"))
+            fields = []
+            for field in m.config_schema.get("fields", []):
+                fid = escape(str(field.get("id", "")))
+                label = escape(str(field.get("label", fid)))
+                ftype = "password" if field.get("type") == "password" else "text"
+                raw_value = instance_config.get(field.get("id"), field.get("default", ""))
+                default = escape(str(raw_value if raw_value is not None else ""))
+                fields.append(
+                    f'<label>{label}</label><input data-instance="{instance_id}" data-field="{fid}" '
+                    f'type="{ftype}" value="{default}">'
+                )
+            remove = '' if index == 0 else f'<button onclick="removePluginInstance(this)">Instanz entfernen</button>'
+            return (
+                f'<div class="card pluginInstance" data-plugin="{pid}" data-instance-id="{instance_id}">'
+                f'<h3>{escape(m.name)} <small>{instance_id}</small></h3>'
+                f'<label>Instanz-ID</label><input class="instanceId" type="text" value="{instance_id}">'
+                f'{"".join(fields)}'
+                f'<button onclick="testPluginInstance(this)">Verbindung testen</button> '
+                f'<span class="instanceResult"></span> {remove}</div>'
+            )
+
+        rendered_instances = plugin_existing or [{"id": f"{m.id.replace('-', '_')}_main", "config": {}}]
+        instance_cards = "".join(render_instance(x, i) for i, x in enumerate(rendered_instances))
+
+        template_fields = []
         for field in m.config_schema.get("fields", []):
             fid = escape(str(field.get("id", "")))
             label = escape(str(field.get("label", fid)))
             ftype = "password" if field.get("type") == "password" else "text"
-            raw_value = existing_config.get(field.get("id"), field.get("default", ""))
-            default = escape(str(raw_value if raw_value is not None else ""))
-            fields.append(
-                f'<label>{label}</label><input data-plugin="{pid}" data-field="{fid}" '
-                f'type="{ftype}" value="{default}">'
+            default = escape(str(field.get("default", "") if field.get("default") is not None else ""))
+            template_fields.append(
+                f'<label>{label}</label><input data-field="{fid}" type="{ftype}" value="{default}">'
             )
+        template = (
+            f'<template data-instance-template="{pid}"><div class="card pluginInstance" data-plugin="{pid}">'
+            f'<h3>{escape(m.name)} <small>neue Instanz</small></h3>'
+            f'<label>Instanz-ID</label><input class="instanceId" type="text" value="">'
+            f'{"".join(template_fields)}'
+            f'<button onclick="testPluginInstance(this)">Verbindung testen</button> '
+            f'<span class="instanceResult"></span> <button onclick="removePluginInstance(this)">Instanz entfernen</button>'
+            f'</div></template>'
+        )
         configs.append(
             f'<div class="pluginConfig" data-config-plugin="{pid}" hidden>'
-            f'<div class="card"><h3>{escape(m.name)}</h3>{"".join(fields)}'
-            f'<button onclick="testPlugin(\'{pid}\')">Verbindung testen</button> '
-            f'<span id="r_{pid}"></span></div></div>'
+            f'<h3>{escape(m.name)}</h3><div class="instanceList">{instance_cards}</div>'
+            f'<button onclick="addPluginInstance(\'{pid}\')">+ Instanz hinzufügen</button>{template}</div>'
         )
 
     return HTMLResponse(f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INS-EI Setup</title>
@@ -112,7 +152,8 @@ function api(path){{
   return p+path.replace(/^\//,'');
 }}
 let step=0;
-let discoveredComponents={persisted_components_json}.map(x=>({{...x,ready:true,plugin:(x.provider||'').replace(/_main$/,'').replaceAll('_','-')}}));
+const instancePluginMap={json.dumps({x.get("id"): x.get("plugin") for x in existing_instances}, ensure_ascii=False)};
+let discoveredComponents={persisted_components_json}.map(x=>({{...x,ready:true,provider:x.provider||'',plugin:instancePluginMap[x.provider]||''}}));
 let relations={persisted_relations_json};
 const hadPersistedTopology=relations.length>0;
 const pages=[...document.querySelectorAll('.page')];
@@ -140,26 +181,45 @@ function syncPlugins(){{
   document.querySelectorAll('[data-config-plugin]').forEach(x=>x.hidden=!ids.includes(x.dataset.configPlugin));
   document.getElementById('noneSelected').hidden=ids.length>0;
 }}
-function cfg(id){{
+function instanceConfig(card){{
   const o={{}};
-  document.querySelectorAll('[data-plugin="'+id+'"]').forEach(x=>{{
-    if(x.value!=='') o[x.dataset.field]=(x.dataset.field==='port'||x.dataset.field==='unit_id')?Number(x.value):x.value;
+  card.querySelectorAll('[data-field]').forEach(x=>{{
+    if(x.value!=='') o[x.dataset.field]=(x.dataset.field==='port'||x.dataset.field.endsWith('_unit_id')||x.dataset.field==='device_id')?Number(x.value):x.value;
   }});
   return o;
 }}
-async function testPlugin(id){{
-  const el=document.getElementById('r_'+id); el.textContent=' teste…';
+function normalizeInstanceId(card){{
+  const input=card.querySelector('.instanceId');
+  const id=input.value.trim().replace(/[^a-zA-Z0-9_-]+/g,'_');
+  input.value=id;
+  card.dataset.instanceId=id;
+  card.querySelectorAll('[data-field]').forEach(x=>x.dataset.instance=id);
+  return id;
+}}
+function addPluginInstance(pluginId){{
+  const host=document.querySelector('[data-config-plugin="'+pluginId+'"]');
+  const tpl=host.querySelector('template[data-instance-template="'+pluginId+'"]');
+  const node=tpl.content.firstElementChild.cloneNode(true);
+  const count=host.querySelectorAll('.pluginInstance').length+1;
+  const id=pluginId.replaceAll('-','_')+'_'+count;
+  node.querySelector('.instanceId').value=id; node.dataset.instanceId=id;
+  node.querySelectorAll('[data-field]').forEach(x=>x.dataset.instance=id);
+  host.querySelector('.instanceList').appendChild(node);
+}}
+function removePluginInstance(button){{button.closest('.pluginInstance').remove();}}
+async function testPluginInstance(button){{
+  const card=button.closest('.pluginInstance'), id=normalizeInstanceId(card), pluginId=card.dataset.plugin;
+  const el=card.querySelector('.instanceResult'); el.textContent=' teste…';
   try{{
-    const r=await fetch(api('setup/test-plugin'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id.replaceAll('-','_')+'_main',config:cfg(id)}})}});
-    const d=await r.json();
-    el.className=r.ok?'ok':'bad';
+    const r=await fetch(api('setup/test-plugin'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:pluginId,instance_id:id,config:instanceConfig(card)}})}});
+    const d=await r.json(); el.className=r.ok?'instanceResult ok':'instanceResult bad';
     el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
     if(r.ok){{
-      discoveredComponents=discoveredComponents.filter(x=>x.plugin!==id);
-      (d.components||[]).forEach(x=>discoveredComponents.push({{...x,plugin:id}}));
+      discoveredComponents=discoveredComponents.filter(x=>x.provider!==id);
+      (d.components||[]).forEach(x=>discoveredComponents.push({{...x,plugin:pluginId,provider:id}}));
       renderDiscovered(); proposeRelations();
     }}
-  }}catch(e){{el.className='bad';el.textContent=' ✗ '+e;}}
+  }}catch(e){{el.className='instanceResult bad';el.textContent=' ✗ '+e;}}
 }}
 function typedMap(){{const m=new Map();discoveredComponents.filter(x=>x.ready).forEach(x=>m.set(x.id,x));return m;}}
 function renderDiscovered(){{
@@ -231,8 +291,14 @@ async function save(){{
   saveResult.className='';
   saveResult.textContent='Speichere und prüfe…';
   const ids=selectedIds();
-  const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));
-  const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
+  const plugin_instances=[];
+  ids.forEach(pluginId=>{{
+    document.querySelectorAll('[data-config-plugin="'+pluginId+'"] .pluginInstance').forEach(card=>{{
+      const id=normalizeInstanceId(card);
+      if(id) plugin_instances.push({{id,plugin:pluginId,config:instanceConfig(card)}});
+    }});
+  }});
+  const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.provider||null}}));
   const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[],commissioning:{{status:'CONFIRMED',confirmed_at:new Date().toISOString(),confirmed_by:'installer',topology_confirmed:true,constraints_confirmed:true,notes:[]}}}};
   try{{
     const r=await fetch(api('setup/save'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
