@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.19", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.20", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -89,7 +89,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <section class="page"><h2>Erkannte Komponenten</h2><div class="card"><p class="muted">Nach erfolgreichen Verbindungstests erscheinen hier erkannte Kessel, Speicher, Batterie, PV, Zähler usw.</p><div id="discoveredComponents">Noch keine Komponenten erkannt.</div></div></section>
 <section class="page"><h2>Anlage & Verbindungen</h2><p class="muted">INS-EI schlägt aus den erkannten Komponenten eine Grundtopologie vor. Du kannst Verbindungen entfernen oder ergänzen.</p><div id="topologyEditor"></div><div class="card"><h3>Verbindung ergänzen</h3><select id="relFrom"></select> → <select id="relType"><option>HEATS</option><option>SUPPLIES</option><option>CHARGES</option><option>CONNECTED_TO</option></select> → <select id="relTo"></select> <button onclick="addRelation()">Hinzufügen</button></div></section>
-<section class="page"><h2>Grenzen</h2><p class="muted">Nur harte technische Grenzen und Komfortvorgaben. Diese Werte darf Learning niemals überschreiben.</p><div id="limitsEditor"></div><label class="pluginChoice"><input id="limitsConfirmed" type="checkbox" onchange="updateStart()"><span><b>Grenzen geprüft und bestätigt</b><small>Erforderlich bevor Learning / Shadow gestartet werden kann.</small></span></label></section>
+<section class="page"><h2>Grenzen</h2><p class="muted">Nur harte technische Grenzen und Komfortvorgaben. Diese Werte darf Learning niemals überschreiben.</p><div id="limitsEditor"></div><label class="pluginChoice"><input id="limitsConfirmed" type="checkbox" onchange="updateStart()" {"checked" if existing_site.get("constraints") else ""}><span><b>Grenzen geprüft und bestätigt</b><small>Erforderlich bevor Learning / Shadow gestartet werden kann.</small></span></label></section>
 <section class="page"><h2>Learning / Shadow starten</h2><div class="card"><h3>Inbetriebnahmeprüfung</h3><div id="commissioningCheck"></div><p>INS-EI speichert die Anlage lokal und startet ohne autonome Steuerhoheit.</p><button id="startButton" class="primary" onclick="save()" disabled>Konfiguration speichern</button><div id="saveResult"></div></div></section>
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
@@ -186,7 +186,20 @@ function updateStart(){{
   const typed=discoveredComponents.filter(x=>x.ready).length, unknown=discoveredComponents.filter(x=>!x.ready).length, tested=discoveredComponents.length>0, confirmed=document.getElementById('limitsConfirmed')?.checked||false;
   const ok=tested&&typed>0&&unknown===0&&confirmed;
   document.getElementById('commissioningCheck').innerHTML='<div>'+(tested?'✓':'✗')+' Geräte getestet</div><div>'+(unknown===0?'✓':'✗')+' Komponenten typisiert'+(unknown?' ('+unknown+' offen)':'')+'</div><div>'+(confirmed?'✓':'✗')+' Grenzen bestätigt</div><div>✓ Autonomie: Default-Deny / Shadow</div>';
-  document.getElementById('startButton').disabled=!ok;
+  const btn=document.getElementById('startButton');
+  btn.disabled=!ok;
+  if(!tested) btn.textContent='Speichern nicht möglich – Geräte testen';
+  else if(unknown>0) btn.textContent='Speichern nicht möglich – Komponenten prüfen';
+  else if(!confirmed) btn.textContent='Speichern nicht möglich – Grenzen bestätigen';
+  else btn.textContent='Konfiguration speichern';
+  const result=document.getElementById('saveResult');
+  if(!ok){{
+    result.className='bad';
+    result.textContent='Konfiguration noch nicht speicherbar: '+(!tested?'Geräte nicht getestet.':unknown>0?'Komponententypen offen.':'Grenzen noch nicht bestätigt.');
+  }} else if(!result.textContent.startsWith('✓')) {{
+    result.className='ok';
+    result.textContent='Bereit zum Speichern.';
+  }}
 }}
 async function save(){{
   saveResult.className='';
