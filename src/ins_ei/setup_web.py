@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.18", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.19", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -86,6 +86,14 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
+function api(path){{
+  const marker='/config';
+  let p=window.location.pathname;
+  const i=p.lastIndexOf(marker);
+  if(i>=0) p=p.slice(0,i+1);
+  else if(!p.endsWith('/')) p+='/';
+  return p+path.replace(/^\//,'');
+}}
 let step=0;
 let discoveredComponents={persisted_components_json}.map(x=>({{...x,ready:true,plugin:(x.provider||'').replace(/_main$/,'').replaceAll('_','-')}}));
 let relations={persisted_relations_json};
@@ -124,7 +132,7 @@ function cfg(id){{
 async function testPlugin(id){{
   const el=document.getElementById('r_'+id); el.textContent=' teste…';
   try{{
-    const r=await fetch('setup/test-plugin',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id.replaceAll('-','_')+'_main',config:cfg(id)}})}});
+    const r=await fetch(api('setup/test-plugin'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:id,instance_id:id.replaceAll('-','_')+'_main',config:cfg(id)}})}});
     const d=await r.json();
     el.className=r.ok?'ok':'bad';
     el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
@@ -173,18 +181,26 @@ function updateStart(){{
   document.getElementById('startButton').disabled=!ok;
 }}
 async function save(){{
+  saveResult.className='';
+  saveResult.textContent='Speichere und prüfe…';
   const ids=selectedIds();
   const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));
   const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
   const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
-  const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
-  const d=await r.json();
-  if(r.ok && d.saved && d.verified){{
+  try{{
+    const r=await fetch(api('setup/save'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
+    const text=await r.text();
+    let d={{}}; try{{d=JSON.parse(text)}}catch(_e){{d={{detail:text||('HTTP '+r.status)}}}}
+    if(r.ok && d.saved && d.verified){{
     saveResult.className='ok';
     saveResult.innerHTML='✓ Konfiguration dauerhaft gespeichert und geprüft.<br><small>Neustart erforderlich, damit Änderungen aktiv werden.</small>';
-  }} else {{
+    }} else {{
+      saveResult.className='bad';
+      saveResult.textContent='✗ Speichern fehlgeschlagen: '+(d.detail||('HTTP '+r.status));
+    }}
+  }}catch(e){{
     saveResult.className='bad';
-    saveResult.textContent='✗ Speichern fehlgeschlagen: '+(d.detail||'unbekannter Fehler');
+    saveResult.textContent='✗ Speichern fehlgeschlagen: '+e;
   }}
 }}
 syncPlugins(); renderDiscovered(); renderTopology(); renderLimits(); updateStart(); show();
