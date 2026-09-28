@@ -87,7 +87,9 @@ class VictronGXPlugin(Plugin):
             return PluginHealth(status=PluginStatus.DEGRADED, message=self.last_error)
         if not self.connected:
             return PluginHealth(status=PluginStatus.DEGRADED, message="MQTT not connected")
-        return PluginHealth(status=PluginStatus.RUNNING, message="Victron GX MQTT connected")
+        if not self.values:
+            return PluginHealth(status=PluginStatus.STARTING, message="MQTT connected; waiting for telemetry")
+        return PluginHealth(status=PluginStatus.RUNNING, message="Victron GX MQTT telemetry active")
 
     def _latest_suffix(self, suffix: str):
         with self.lock:
@@ -124,6 +126,16 @@ class VictronGXPlugin(Plugin):
                 Point(component_id=battery, point="battery.discharge_power", value=max(0.0, -value), unit="W", quality=Quality.GOOD, observed_at=observed, source=source),
             ])
         return points
+
+    def diagnostics(self) -> dict[str, Any]:
+        with self.lock:
+            topics = sorted(self.values.keys())
+        return {
+            "connected": self.connected,
+            "topic_count": len(topics),
+            "topics": topics,
+            "last_error": self.last_error,
+        }
 
     def execute(self, command: str, parameters: dict[str, Any] | None = None):
         raise NotImplementedError("Victron GX V1 Shadow plugin is read-only")
