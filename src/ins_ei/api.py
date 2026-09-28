@@ -27,7 +27,7 @@ def create_app(runtime: Runtime) -> FastAPI:
         return setup_html(
             runtime.catalog.installed().values(),
             version="0.1.17",
-            existing_site=runtime.site.model_dump(mode="json"),
+            existing_site=setup_store.load() or runtime.site.model_dump(mode="json"),
         )
 
     @app.get("/health")
