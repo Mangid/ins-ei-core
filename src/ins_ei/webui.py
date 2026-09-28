@@ -21,12 +21,12 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.16 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.25 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
  <div class="card"><div class="title">Safety</div><div id="safety" class="big">…</div><div id="safetyReason"></div></div>
- <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div>registrierte Modelle</div></div>
+ <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div id="learningDetail">registrierte Modelle</div></div>
  <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
 </div>
 <div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="./site/schema.svg"></iframe></div>
@@ -43,10 +43,10 @@ function api(path){
 async function j(url){const r=await fetch(api(url));return r.json()}
 function cls(v){return ['OK','RUNNING','AUTONOMOUS'].includes(v)?'ok':['FAILED','DEGRADED'].includes(v)?'bad':'warn'}
 async function refresh(){
- const [h,s,l,a]=await Promise.all([j('/health'),j('/safety'),j('/learning/models'),j('/autonomy')])
+ const [h,s,l,ls,a]=await Promise.all([j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy')])
  health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site
  safety.textContent=s.emergency_stop?'NOT-AUS AKTIV':'Freigegeben'; safety.className='big '+(s.emergency_stop?'bad':'ok'); safetyReason.textContent=s.reason||''
- models.textContent=l.models.length; auto.textContent=a.capabilities.length
+ models.textContent=l.models.length+' · '+ls.phase; learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale'; auto.textContent=a.capabilities.length
  plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('')
  autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('')
 }
