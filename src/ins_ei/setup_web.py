@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from html import escape
+import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.14", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.15", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
+    persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
+    persisted_relations_json = json.dumps(existing_site.get("relations", []), ensure_ascii=False)
+    persisted_constraints_json = json.dumps(existing_site.get("constraints", []), ensure_ascii=False)
     plugin_items = [x for x in list(plugin_items or []) if x.manifest.kind != "test"]
 
     choices = []
@@ -82,10 +86,11 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
 let step=0;
-let discoveredComponents=[];
-let relations=[];
+let discoveredComponents={persisted_components_json}.map(x=>({{...x,ready:true,plugin:(x.provider||'').replace(/_main$/,'').replaceAll('_','-')}}));
+let relations={persisted_relations_json};
 const pages=[...document.querySelectorAll('.page')];
 const dots=[...document.querySelectorAll('.stepDot')];
+const persistedConstraints={persisted_constraints_json};
 const limitDefaults={{
   battery:[['battery_min_soc','Mindest-SOC',20,'%'],['battery_max_charge_current','Max. Ladestrom',100,'A'],['battery_max_discharge_current','Max. Entladestrom',100,'A']],
   buffer:[['buffer_max_temperature','Maximaltemperatur',75,'°C']],
@@ -150,7 +155,11 @@ function addRelation(){{const a=relFrom.value,b=relTo.value;if(a&&b&&a!==b)relat
 function removeRelation(i){{relations.splice(i,1);renderTopology();updateStart();}}
 function renderLimits(){{
   const m=typedMap(), rows=[];
-  for(const id of m.keys()) for(const d of (limitDefaults[id]||[])) rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+d[2]+'"><small>'+d[3]+'</small></div>');
+  for(const id of m.keys()) for(const d of (limitDefaults[id]||[])){{
+    const saved=persistedConstraints.find(x=>x.id===d[0]);
+    const value=saved?saved.value:d[2];
+    rows.push('<div class="card"><b>'+id+'</b><br><label>'+d[1]+'</label><input type="text" data-limit-id="'+d[0]+'" data-limit-target="'+id+'" data-limit-unit="'+d[3]+'" value="'+value+'"><small>'+d[3]+'</small></div>');
+  }}
   document.getElementById('limitsEditor').innerHTML=rows.length?rows.join(''):'<div class="card muted">Für die erkannten Komponenten sind noch keine Pflichtgrenzen definiert.</div>';
 }}
 function buildConstraints(){{return [...document.querySelectorAll('[data-limit-id]')].map(x=>({{id:x.dataset.limitId,type:x.dataset.limitId.includes('min')?'MIN_VALUE':'MAX_VALUE',target:x.dataset.limitTarget,value:Number(x.value),unit:x.dataset.limitUnit}}));}}
@@ -168,5 +177,5 @@ async function save(){{
   const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
   const d=await r.json(); saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler';
 }}
-syncPlugins(); show();
+syncPlugins(); renderDiscovered(); renderTopology(); renderLimits(); updateStart(); show();
 </script></main></body></html>""")
