@@ -75,6 +75,10 @@ def create_app(runtime: Runtime) -> FastAPI:
             ]
         }
 
+    @app.get("/learning/status")
+    def learning_status() -> dict:
+        return runtime.learning.baseline_status()
+
     @app.get("/learning/models")
     def learning_models() -> dict:
         return {
