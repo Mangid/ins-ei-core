@@ -141,12 +141,21 @@ class Runtime:
             self.metrics.set(f"plugin.{instance_id}.last_read_ok", 1)
             self.metrics.set(f"plugin.{instance_id}.points_last_read", len(points))
         except Exception as exc:
+            error = str(exc)
+            if error == "OEKOFEN_REQUEST_ABSTAND" and managed.last_successful_read_at is not None:
+                # ÖkoFEN JSON rate limiting can also be caused by other clients.
+                # Preserve the last known-good health and retry on a later poll.
+                managed.status = PluginStatus.RUNNING
+                managed.error = None
+                log.info("plugin poll deferred | instance=%s reason=%s", instance_id, error)
+                self.metrics.inc(f"plugin.{instance_id}.poll_deferred_total")
+                return
             managed.status = PluginStatus.DEGRADED
-            managed.error = str(exc)
+            managed.error = error
             log.exception("plugin collect failed | instance=%s", instance_id)
             self.metrics.inc("collect_failed_total")
             self.metrics.set(f"plugin.{instance_id}.last_read_ok", 0)
-            self.audit.record("plugin.collect_failed", instance=instance_id, error=str(exc))
+            self.audit.record("plugin.collect_failed", instance=instance_id, error=error)
 
     def collect_once(self) -> None:
         for instance_id in self.plugins:
