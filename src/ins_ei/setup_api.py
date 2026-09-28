@@ -38,6 +38,8 @@ def _infer_components(points) -> list[dict[str, Any]]:
                 kind = "PV"
             elif any(x.startswith("grid.") for x in point_names):
                 kind = "GRID"
+            elif any(x.startswith("electrical.") for x in point_names) and component_id.startswith("grid"):
+                kind = "GRID"
         result.append({
             "id": component_id,
             "kind": kind,
