@@ -117,6 +117,7 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
             "site": {
                 "id": payload.get("site_id") or "ins-ei-site",
                 "timezone": payload.get("timezone") or "Europe/Vienna",
+                "location": payload.get("location") or {},
             },
             "plugin_instances": payload.get("plugin_instances") or [],
             "components": payload.get("components") or [],
