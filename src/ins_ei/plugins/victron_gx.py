@@ -76,8 +76,8 @@ class VictronGXPlugin(Plugin):
             power = voltage * current
             points += [
                 self._point("battery", "battery.soc", soc, "%", now, source),
-                self._point("battery", "electrical.voltage", voltage, "V", now, source),
-                self._point("battery", "electrical.current", current, "A", now, source),
+                self._point("battery", "electrical.voltage_dc", voltage, "V", now, source),
+                self._point("battery", "electrical.current_dc", current, "A", now, source),
                 self._point("battery", "thermal.temperature", temperature, "°C", now, source),
                 self._point("battery", "battery.charge_power", max(0.0, power), "W", now, source),
                 self._point("battery", "battery.discharge_power", max(0.0, -power), "W", now, source),
@@ -89,7 +89,7 @@ class VictronGXPlugin(Plugin):
             phase_power = [float(self.transport.signed16(x)) for x in g]
             total_grid = sum(phase_power)
             points += [
-                self._point("grid_victron", f"grid.power_l{i+1}", phase_power[i], "W", now, source)
+                self._point("grid_victron", f"power.output_l{i+1}", phase_power[i], "W", now, source)
                 for i in range(3)
             ]
             points += [
@@ -108,9 +108,9 @@ class VictronGXPlugin(Plugin):
                 component = f"pv_inverter_{index}"
                 points += [
                     self._point(component, "pv.generation_power", pv_power, "W", now, source),
-                    self._point(component, "pv.power_l1", float(p1), "W", now, source),
-                    self._point(component, "pv.power_l2", float(p2), "W", now, source),
-                    self._point(component, "pv.power_l3", float(p3), "W", now, source),
+                    self._point(component, "power.output_l1", float(p1), "W", now, source),
+                    self._point(component, "power.output_l2", float(p2), "W", now, source),
+                    self._point(component, "power.output_l3", float(p3), "W", now, source),
                 ]
             points.append(self._point("pv", "pv.generation_power", total_pv, "W", now, source))
 
