@@ -53,3 +53,29 @@ class FroniusTransport:
             "DeviceId": int(device_id),
             "DataCollection": "3PInverterData",
         })
+
+
+    def archive_strings_today(self) -> dict:
+        from datetime import date
+        d = date.today()
+        date_text = f"{d.day}.{d.month}.{d.year}"
+        # Repeated Channel query parameters are required by the Fronius API.
+        channels = [
+            "Current_DC_String_1", "Current_DC_String_2",
+            "Voltage_DC_String_1", "Voltage_DC_String_2",
+            "Temperature_Powerstage",
+        ]
+        query = "&".join([
+            "Scope=System",
+            f"StartDate={date_text}",
+            f"EndDate={date_text}",
+            *[f"Channel={name}" for name in channels],
+        ])
+        url = f"http://{self.host}/solar_api/v1/GetArchiveData.cgi?{query}"
+        with urlopen(url, timeout=self.timeout) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        head = data.get("Head", {})
+        status = head.get("Status", {})
+        if status.get("Code", 0) not in (0, None):
+            raise RuntimeError(f"FRONIUS_ARCHIVE:{status.get('Code')}:{status.get('Reason','')}")
+        return data
