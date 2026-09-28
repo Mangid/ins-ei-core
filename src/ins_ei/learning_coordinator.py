@@ -71,6 +71,31 @@ class LearningCoordinator:
             ("battery-baseline", "battery_behavior", {"BATTERY"}),
             ("pv-orientation-baseline", "pv_orientation_behavior", {"PV_INPUT"}),
         ]
+        # Refresh commissioned PV provenance while the model is still learning.
+        if "pv-orientation-baseline" in existing:
+            model = self.models.get("pv-orientation-baseline")
+            if model.status == ModelStatus.LEARNING:
+                pv_orientation, commissioned_inputs = {}, {}
+                for component in site.components:
+                    if component.kind != "PV_INPUT":
+                        continue
+                    orientation = component.properties.get("orientation")
+                    if not orientation:
+                        continue
+                    capacity = float(component.properties.get("capacity_kwp") or 0.0)
+                    entry = pv_orientation.setdefault(orientation, {"capacity_kwp": 0.0, "inputs": []})
+                    entry["inputs"].append(component.id)
+                    entry["capacity_kwp"] += capacity
+                    commissioned_inputs[component.id] = {
+                        "label": component.properties.get("label"),
+                        "orientation": orientation,
+                        "capacity_kwp": capacity,
+                    }
+                model.metadata["pv_orientations"] = pv_orientation
+                model.metadata["commissioned_inputs"] = commissioned_inputs
+                model.metadata["commissioning_status"] = site.commissioning.status
+                self.historian.save_model(model)
+
         for model_id, capability, required_kinds in definitions:
             if model_id in existing or not (kinds & required_kinds):
                 continue
