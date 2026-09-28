@@ -108,9 +108,15 @@ class Runtime:
 
     def collect_instance(self, instance_id: str) -> None:
         managed = self.plugins[instance_id]
+        now = datetime.now().astimezone()
+        if managed.last_read_attempt_at is not None:
+            elapsed = (now - managed.last_read_attempt_at).total_seconds()
+            if elapsed < managed.plugin.min_poll_interval_seconds:
+                self.metrics.inc(f"plugin.{instance_id}.poll_skipped_total")
+                return
         if managed.status not in {PluginStatus.STARTING, PluginStatus.RUNNING, PluginStatus.DEGRADED}:
             return
-        managed.last_read_attempt_at = datetime.now().astimezone()
+        managed.last_read_attempt_at = now
         try:
             points = managed.plugin.read_points()
             self.state.ingest(points)
