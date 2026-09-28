@@ -112,6 +112,56 @@ class LearningCoordinator:
             "coverage": summary["coverage"],
         }
 
+
+    def fit_passive_baselines(self) -> dict:
+        """Fit simple observation-only baselines once enough history exists."""
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"], "models": {}}
+
+        fitted = {}
+        specs = {
+            "buffer_temperature": ("buffer", "thermal.temperature_upper"),
+            "dhw_temperature": ("dhw", "thermal.temperature"),
+            "battery_soc": ("battery", "battery.soc"),
+        }
+        for name, (component, point) in specs.items():
+            rows = self.historian.numeric_series(self.site_id, component, point)
+            rates = []
+            for a, b in zip(rows, rows[1:]):
+                ta = datetime.fromisoformat(a["observed_at"])
+                tb = datetime.fromisoformat(b["observed_at"])
+                dt_h = (tb - ta).total_seconds() / 3600.0
+                if dt_h <= 0 or dt_h > 0.25:
+                    continue
+                rates.append((b["value"] - a["value"]) / dt_h)
+            if rows:
+                values = [x["value"] for x in rows]
+                fitted[name] = {
+                    "samples": len(rows),
+                    "minimum": min(values),
+                    "maximum": max(values),
+                    "mean": sum(values) / len(values),
+                    "rate_samples": len(rates),
+                    "mean_rate_per_hour": (sum(rates) / len(rates)) if rates else None,
+                }
+
+        for model in self.models.all():
+            if model.status != ModelStatus.LEARNING:
+                continue
+            model.metadata["phase"] = "PASSIVE_BASELINE"
+            model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+            if model.id == "thermal-baseline":
+                model.metadata["fit"] = {k: v for k, v in fitted.items() if k in {"buffer_temperature", "dhw_temperature"}}
+            elif model.id == "battery-baseline":
+                model.metadata["fit"] = {k: v for k, v in fitted.items() if k == "battery_soc"}
+            else:
+                model.metadata["fit"] = fitted
+            model.reason = "Passive baseline fitted from GOOD historical observations; no control authority."
+            self.historian.save_model(model)
+
+        return {"fitted": True, "models": fitted}
+
     def register_model(
         self,
         model: LearningModelRecord,
