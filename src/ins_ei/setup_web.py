@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.26", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.27", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = existing_site.get('plugin_instances', [])
     instances_by_plugin = {}
@@ -216,7 +216,10 @@ async function testPluginInstance(button){{
     el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
     if(r.ok){{
       discoveredComponents=discoveredComponents.filter(x=>x.provider!==id);
-      (d.components||[]).forEach(x=>discoveredComponents.push({{...x,plugin:pluginId,provider:id}}));
+      (d.components||[]).forEach(x=>{{
+        const old=discoveredComponents.find(y=>y.id===x.id);
+        discoveredComponents.push({{...x,properties:(old&&old.properties)||x.properties||{{}},plugin:pluginId,provider:id}});
+      }});
       renderDiscovered(); proposeRelations();
     }}
   }}catch(e){{el.className='instanceResult bad';el.textContent=' ✗ '+e;}}
@@ -225,7 +228,26 @@ function typedMap(){{const m=new Map();discoveredComponents.filter(x=>x.ready).f
 function renderDiscovered(){{
   const byId=new Map(); discoveredComponents.forEach(x=>byId.set(x.id,x));
   const rows=[...byId.values()];
-  document.getElementById('discoveredComponents').innerHTML=rows.length?rows.map(x=>'<div class="'+(x.ready?'ok':'bad')+'">'+(x.ready?'✓ ':'⚠ ')+x.id+' → '+(x.kind||'Typ unbekannt')+'</div>').join(''):'Noch keine Komponenten erkannt.';
+  document.getElementById('discoveredComponents').innerHTML=rows.length?rows.map(x=>{{
+    let extra='';
+    if(x.kind==='PV_INPUT'){{
+      const p=x.properties||{{}};
+      extra='<div class="card" style="margin:8px 0 14px 20px">'+
+        '<label>Bezeichnung</label><input type="text" data-pv-prop="label" data-component-id="'+x.id+'" value="'+(p.label||'')+'">'+
+        '<label>Ausrichtung</label><select data-pv-prop="orientation" data-component-id="'+x.id+'">'+
+          ['','SOUTH','EAST','WEST','NORTH'].map(v=>'<option value="'+v+'" '+(p.orientation===v?'selected':'')+'>'+(v||'– auswählen –')+'</option>').join('')+
+        '</select>'+
+        '<label>Installierte DC-Leistung (kWp)</label><input type="number" step="0.001" data-pv-prop="capacity_kwp" data-component-id="'+x.id+'" value="'+(p.capacity_kwp??'')+'">'+
+      '</div>';
+    }}
+    return '<div class="'+(x.ready?'ok':'bad')+'">'+(x.ready?'✓ ':'⚠ ')+x.id+' → '+(x.kind||'Typ unbekannt')+'</div>'+extra;
+  }}).join(''):'Noch keine Komponenten erkannt.';
+  document.querySelectorAll('[data-pv-prop]').forEach(el=>el.addEventListener('change',()=>{{
+    const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
+    if(!component)return;
+    component.properties=component.properties||{{}};
+    component.properties[el.dataset.pvProp]=el.dataset.pvProp==='capacity_kwp'?(el.value?Number(el.value):null):el.value;
+  }}));
 }}
 function proposeRelations(){{
   const m=typedMap(), has=id=>m.has(id);
@@ -298,7 +320,7 @@ async function save(){{
       if(id) plugin_instances.push({{id,plugin:pluginId,config:instanceConfig(card)}});
     }});
   }});
-  const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.provider||null}}));
+  const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.provider||null,properties:x.properties||{{}}}}));
   const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[],commissioning:{{status:'CONFIRMED',confirmed_at:new Date().toISOString(),confirmed_by:'installer',topology_confirmed:true,constraints_confirmed:true,notes:[]}}}};
   try{{
     const r=await fetch(api('setup/save'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
