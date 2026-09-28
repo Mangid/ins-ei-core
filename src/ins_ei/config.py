@@ -7,9 +7,18 @@ import yaml
 from pydantic import BaseModel, Field
 
 
+class SiteLocation(BaseModel):
+    name: str | None = None
+    postal_code: str | None = None
+    country: str = "AT"
+    latitude: float | None = None
+    longitude: float | None = None
+
+
 class SiteInfo(BaseModel):
     id: str
     timezone: str = "Europe/Vienna"
+    location: SiteLocation = Field(default_factory=SiteLocation)
 
 
 class PluginInstanceConfig(BaseModel):
