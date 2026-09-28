@@ -15,15 +15,15 @@ class PointDefinition:
 
 _DEFINITIONS = [
     # Grid / electrical flow: fast-changing control inputs.
-    PointDefinition("grid.import_power", "W", float, 10, "Active grid import power, non-negative."),
-    PointDefinition("grid.export_power", "W", float, 10, "Active grid export power, non-negative."),
+    PointDefinition("grid.import_power", "W", float, 30, "Active grid import power, non-negative."),
+    PointDefinition("grid.export_power", "W", float, 30, "Active grid export power, non-negative."),
     PointDefinition("energy.import_total", "kWh", float, 300, "Cumulative imported electrical energy."),
     PointDefinition("energy.export_total", "kWh", float, 300, "Cumulative exported electrical energy."),
-    PointDefinition("power.electrical", "W", float, 15, "Current active electrical power."),
+    PointDefinition("power.electrical", "W", float, 30, "Current active electrical power."),
     PointDefinition("power.maximum_available", "W", float, 60, "Currently reported maximum available power."),
-    PointDefinition("power.output_l1", "W", float, 15, "Active output power phase/channel 1."),
-    PointDefinition("power.output_l2", "W", float, 15, "Active output power phase/channel 2."),
-    PointDefinition("power.output_l3", "W", float, 15, "Active output power phase/channel 3."),
+    PointDefinition("power.output_l1", "W", float, 30, "Active output power phase/channel 1."),
+    PointDefinition("power.output_l2", "W", float, 30, "Active output power phase/channel 2."),
+    PointDefinition("power.output_l3", "W", float, 30, "Active output power phase/channel 3."),
     PointDefinition("power.modulation", "%", float, 30, "Current device modulation."),
     PointDefinition("electrical.voltage_l1", "V", float, 30, "Voltage phase 1."),
     PointDefinition("electrical.voltage_l2", "V", float, 30, "Voltage phase 2."),
@@ -36,10 +36,10 @@ _DEFINITIONS = [
     PointDefinition("electrical.current_dc", "A", float, 30, "Signed DC current; positive/negative direction is provider-defined diagnostics unless paired with canonical flow points."),
 
     # PV and battery: fast control state plus slower capacity information.
-    PointDefinition("pv.generation_power", "W", float, 15, "Current PV generation power, non-negative."),
+    PointDefinition("pv.generation_power", "W", float, 30, "Current PV generation power, non-negative."),
     PointDefinition("battery.soc", "%", float, 30, "Battery state of charge from 0 to 100 percent."),
-    PointDefinition("battery.charge_power", "W", float, 15, "Current battery charging power, non-negative."),
-    PointDefinition("battery.discharge_power", "W", float, 15, "Current battery discharging power, non-negative."),
+    PointDefinition("battery.charge_power", "W", float, 30, "Current battery charging power, non-negative."),
+    PointDefinition("battery.discharge_power", "W", float, 30, "Current battery discharging power, non-negative."),
     PointDefinition("battery.max_charge_power", "W", float, 60, "Current permitted/available maximum battery charge power."),
     PointDefinition("battery.max_discharge_power", "W", float, 60, "Current permitted/available maximum battery discharge power."),
     PointDefinition("battery.capacity_usable", "kWh", float, 3600, "Configured/reported usable battery capacity."),
