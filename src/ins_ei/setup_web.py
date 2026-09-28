@@ -229,7 +229,7 @@ async function save(){{
   const ids=selectedIds();
   const plugin_instances=ids.map(id=>({{id:id.replaceAll('-','_')+'_main',plugin:id,config:cfg(id)}}));
   const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
-  const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
+  const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[],commissioning:{{status:'CONFIRMED',confirmed_at:new Date().toISOString(),confirmed_by:'installer',topology_confirmed:true,constraints_confirmed:true,notes:[]}}}};
   try{{
     const r=await fetch(api('setup/save'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
     const text=await r.text();
