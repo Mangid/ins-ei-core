@@ -9,10 +9,14 @@ from .schema_renderer import render_svg
 from .outcomes import OutcomeExpectation
 from .webui import index_html
 from .setup_web import setup_html
+from .setup_api import create_setup_router
+from .setup_store import SetupStore
 
 
 def create_app(runtime: Runtime) -> FastAPI:
     app = FastAPI(title="INS-EI", version="0.1.0")
+    setup_store = SetupStore(runtime.historian.path.parent.parent)
+    app.include_router(create_setup_router(runtime.catalog, setup_store))
 
     @app.get("/", response_class=HTMLResponse)
     def index():
