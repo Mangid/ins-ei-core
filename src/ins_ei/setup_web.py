@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.24", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.25", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -179,8 +179,16 @@ function proposeRelations(){{
   add('grid_victron','grid','CONNECTED_TO');
   renderTopology(); renderLimits(); updateStart();
 }}
+function relationGroup(r){{
+  const s=(r.from+' '+r.to).toLowerCase();
+  if(/pellet|buffer|dhw|hk|power_to_heat/.test(s)) return 1;
+  if(/pv|battery/.test(s)) return 2;
+  if(/grid/.test(s)) return 3;
+  return 4;
+}}
 function renderTopology(){{
   const ids=[...typedMap().keys()], opts=ids.map(x=>'<option>'+x+'</option>').join('');
+  relations.sort((a,b)=>relationGroup(a)-relationGroup(b)||(a.from+a.to).localeCompare(b.from+b.to));
   document.getElementById('relFrom').innerHTML=opts; document.getElementById('relTo').innerHTML=opts;
   document.getElementById('topologyEditor').innerHTML='<div class="card">'+(relations.length?relations.map((r,i)=>'<div class="relationRow"><span class="relationText">'+r.from+' <b>→ '+r.type+' →</b> '+r.to+'</span><button class="relationRemove" title="'+r.from+' → '+r.type+' → '+r.to+' entfernen" onclick="removeRelation('+i+')">Entfernen</button></div>').join(''):'Noch keine Verbindungen.')+'</div>';
 }}
