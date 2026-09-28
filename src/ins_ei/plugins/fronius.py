@@ -99,18 +99,25 @@ class FroniusPlugin(Plugin):
 
             flow = self.transport.power_flow()
             flow_data = flow.get("Body", {}).get("Data", {})
+            three_phase = self.transport.inverter_three_phase(device_id).get("Body", {}).get("Data", {})
+            cumulation = self.transport.inverter_cumulation(device_id).get("Body", {}).get("Data", {})
+            minmax = self.transport.inverter_minmax(device_id).get("Body", {}).get("Data", {})
             self.last_diagnostics = {
                 "device_id": device_id,
                 "component_prefix": prefix,
                 "powerflow_version": flow_data.get("Version"),
                 "powerflow_keys": sorted(flow_data.keys()),
                 "inverter_keys": sorted(body.keys()),
+                "three_phase_keys": sorted(three_phase.keys()),
+                "cumulation_keys": sorted(cumulation.keys()),
+                "minmax_keys": sorted(minmax.keys()),
                 "points": len(points),
             }
             self.last_error = None
             log.info(
-                "solar api telemetry | instance=%s points=%d inverter_keys=%d powerflow_keys=%d",
-                self.instance_id, len(points), len(body), len(flow_data),
+                "solar api telemetry | instance=%s points=%d common=%s three_phase=%s cumulation=%s minmax=%s",
+                self.instance_id, len(points), sorted(body.keys()), sorted(three_phase.keys()),
+                sorted(cumulation.keys()), sorted(minmax.keys()),
             )
             return points
         except Exception as exc:
