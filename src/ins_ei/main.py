@@ -38,6 +38,7 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.learning.fit_dhw_baseline()
         runtime.learning.fit_electrical_baseline()
         runtime.learning.fit_pv_orientation_baseline()
+        runtime.learning.fit_battery_behavior_baseline()
 
 
 def main() -> None:
