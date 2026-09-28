@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from ins_ei.plugin_loader import PluginCatalog
 from ins_ei.setup_store import SetupStore
+from ins_ei.config import SiteConfig
 
 
 
@@ -128,11 +129,20 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
             "strategy": payload.get("strategy") or {"modules": []},
             "site_rules": payload.get("site_rules") or [],
         }
-        path = store.save(site)
+        # Validate the exact document before touching the persistent Site.
+        validated = SiteConfig.model_validate(site)
+        path = store.save(validated.model_dump(mode="json"))
+        persisted = store.load()
+        if persisted is None:
+            raise HTTPException(status_code=500, detail="SITE_SAVE_VERIFY_FAILED")
+        # Read-after-write verification prevents false-positive save feedback.
+        verified = SiteConfig.model_validate(persisted)
         return {
             "saved": True,
+            "verified": True,
             "path": str(path),
             "restart_required": True,
+            "site": verified.model_dump(mode="json"),
         }
 
     return router
