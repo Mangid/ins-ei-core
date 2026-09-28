@@ -1,0 +1,14 @@
+api_version: ins-ei.plugin/v1
+id: fronius
+name: Fronius
+version: 0.1.0
+kind: device
+entrypoint: ins_ei.plugins.fronius:FroniusPlugin
+capabilities: [pv, inverter, discovery]
+config_schema:
+  fields:
+    - {id: host, label: Fronius IP / Host, type: text, required: true}
+    - {id: device_id, label: Device ID, type: number, default: 1}
+    - {id: component_prefix, label: Komponenten-Prefix, type: text, required: true}
+permissions: {network: true, filesystem: false}
+notes: {transport: solar_api_v1, control: read_only_shadow_v1}
