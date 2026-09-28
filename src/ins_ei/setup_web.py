@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.27", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.28", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = existing_site.get('plugin_instances', [])
     instances_by_plugin = {}
@@ -230,6 +230,12 @@ function renderDiscovered(){{
   const rows=[...byId.values()];
   document.getElementById('discoveredComponents').innerHTML=rows.length?rows.map(x=>{{
     let extra='';
+    if(x.kind==='BATTERY'){{
+      const p=x.properties||{{}};
+      extra='<div class="card" style="margin:8px 0 14px 20px">'+
+        '<label>Nennkapazität (kWh)</label><input type="number" step="0.1" data-component-prop="capacity_nominal_kwh" data-component-id="'+x.id+'" value="'+(p.capacity_nominal_kwh??'')+'">'+
+      '</div>';
+    }}
     if(x.kind==='PV_INPUT'){{
       const p=x.properties||{{}};
       extra='<div class="card" style="margin:8px 0 14px 20px">'+
@@ -242,6 +248,11 @@ function renderDiscovered(){{
     }}
     return '<div class="'+(x.ready?'ok':'bad')+'">'+(x.ready?'✓ ':'⚠ ')+x.id+' → '+(x.kind||'Typ unbekannt')+'</div>'+extra;
   }}).join(''):'Noch keine Komponenten erkannt.';
+  document.querySelectorAll('[data-component-prop]').forEach(el=>el.addEventListener('change',()=>{{
+    const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
+    if(!component)return; component.properties=component.properties||{{}};
+    component.properties[el.dataset.componentProp]=el.value?Number(el.value):null;
+  }}));
   document.querySelectorAll('[data-pv-prop]').forEach(el=>el.addEventListener('change',()=>{{
     const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
     if(!component)return;
