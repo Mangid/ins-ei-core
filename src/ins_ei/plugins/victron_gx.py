@@ -12,7 +12,7 @@ log = logging.getLogger("ins_ei.plugin.victron_gx")
 
 
 class VictronGXPlugin(Plugin):
-    """Read-only local Victron GX Modbus TCP adapter."""
+    """Read-only Victron GX Modbus TCP provider."""
 
     def __init__(self, instance_id: str, config: dict[str, Any]) -> None:
         super().__init__(instance_id, config)
@@ -27,8 +27,7 @@ class VictronGXPlugin(Plugin):
 
     def start(self) -> None:
         self.transport = VictronModbusTransport(
-            self.config["host"],
-            int(self.config.get("port", 502)),
+            self.config["host"], int(self.config.get("port", 502)),
             float(self.config.get("timeout", 5.0)),
         )
         self.running = True
@@ -47,29 +46,86 @@ class VictronGXPlugin(Plugin):
             return PluginHealth(status=PluginStatus.STARTING, message="waiting for Modbus telemetry")
         return PluginHealth(status=PluginStatus.RUNNING, message="Victron GX Modbus telemetry active")
 
+    def _point(self, component: str, name: str, value: float, unit: str, now, source) -> Point:
+        return Point(component_id=component, point=name, value=value, unit=unit,
+                     quality=Quality.GOOD, observed_at=now, source=source)
+
     def read_points(self) -> list[Point]:
         if not self.running or self.transport is None:
             return []
-
-        # V1 probe: GX system service is officially Unit-ID 100.
-        # We intentionally do not hard-code battery/PV device Unit-IDs here:
-        # those depend on the GX available-services mapping.
         try:
-            unit_id = int(self.config.get("system_unit_id", 100))
-            # Probe a single documented system-service register range only to
-            # prove GX Modbus reachability. Canonical battery/PV mappings are
-            # added after service discovery on the actual GX.
-            words = self.transport.read_registers(unit_id, 800, 1)
+            now = datetime.now().astimezone()
+            source = Source(plugin_instance=self.instance_id)
+            points: list[Point] = []
+
+            battery_unit = int(self.config.get("battery_unit_id", 225))
+            grid_unit = int(self.config.get("grid_unit_id", 30))
+            pv_units = [
+                int(x) for x in self.config.get("pv_unit_ids", [22, 23])
+            ]
+
+            # com.victronenergy.battery:
+            # 259 voltage /100 V, 261 signed current /10 A, 262 temp /10 C,
+            # 266 SOC /10 %. Power is derived from V*I.
+            b = self.transport.read_registers(battery_unit, 259, 8)
+            voltage = b[0] / 100.0
+            current = self.transport.signed16(b[2]) / 10.0
+            temperature = self.transport.signed16(b[3]) / 10.0
+            soc = b[7] / 10.0
+            power = voltage * current
+            points += [
+                self._point("battery", "battery.soc", soc, "%", now, source),
+                self._point("battery", "electrical.voltage", voltage, "V", now, source),
+                self._point("battery", "electrical.current", current, "A", now, source),
+                self._point("battery", "thermal.temperature", temperature, "°C", now, source),
+                self._point("battery", "battery.charge_power", max(0.0, power), "W", now, source),
+                self._point("battery", "battery.discharge_power", max(0.0, -power), "W", now, source),
+            ]
+
+            # com.victronenergy.grid: phase powers 2600..2602, signed:
+            # positive import, negative export.
+            g = self.transport.read_registers(grid_unit, 2600, 3)
+            phase_power = [float(self.transport.signed16(x)) for x in g]
+            total_grid = sum(phase_power)
+            points += [
+                self._point("grid_victron", f"grid.power_l{i+1}", phase_power[i], "W", now, source)
+                for i in range(3)
+            ]
+            points += [
+                self._point("grid_victron", "grid.import_power", max(0.0, total_grid), "W", now, source),
+                self._point("grid_victron", "grid.export_power", max(0.0, -total_grid), "W", now, source),
+            ]
+
+            # com.victronenergy.pvinverter: per-phase power registers.
+            total_pv = 0.0
+            for index, unit in enumerate(pv_units, start=1):
+                p1 = self.transport.read_registers(unit, 1029, 1)[0]
+                p2 = self.transport.read_registers(unit, 1033, 1)[0]
+                p3 = self.transport.read_registers(unit, 1037, 1)[0]
+                pv_power = float(p1 + p2 + p3)
+                total_pv += pv_power
+                component = f"pv_inverter_{index}"
+                points += [
+                    self._point(component, "pv.generation_power", pv_power, "W", now, source),
+                    self._point(component, "pv.power_l1", float(p1), "W", now, source),
+                    self._point(component, "pv.power_l2", float(p2), "W", now, source),
+                    self._point(component, "pv.power_l3", float(p3), "W", now, source),
+                ]
+            points.append(self._point("pv", "pv.generation_power", total_pv, "W", now, source))
+
             self.last_diagnostics = {
-                "system_unit_id": unit_id,
-                "probe_register": 800,
-                "probe_value": words[0],
                 "transport": "modbus_tcp",
+                "battery_unit_id": battery_unit,
+                "grid_unit_id": grid_unit,
+                "pv_unit_ids": pv_units,
+                "points": len(points),
             }
             self.last_error = None
-            log.info("modbus reachable | instance=%s unit_id=%d probe=800 value=%d",
-                     self.instance_id, unit_id, words[0])
-            return []
+            log.info(
+                "modbus telemetry | instance=%s points=%d battery_soc=%.1f pv_w=%.0f grid_w=%.0f",
+                self.instance_id, len(points), soc, total_pv, total_grid,
+            )
+            return points
         except Exception as exc:
             self.last_error = str(exc)
             log.warning("modbus read failed | instance=%s error=%s", self.instance_id, exc)
