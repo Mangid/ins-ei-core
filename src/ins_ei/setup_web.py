@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.17", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.18", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = {x.get('plugin'): x for x in existing_site.get('plugin_instances', [])}
     persisted_components_json = json.dumps(existing_site.get("components", []), ensure_ascii=False)
@@ -62,6 +62,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <header><div><h1 style="margin:0">INS-EI</h1><small>V1 · v{escape(version)} · Inbetriebnahme</small></div><button onclick="history.length>1?history.back():location.href='./'">← Zurück</button></header>
 <div class="steps"><span class="stepDot active">1 Grundeinstellungen</span><span class="stepDot">2 Plugins</span><span class="stepDot">3 Konfiguration</span><span class="stepDot">4 Komponenten</span><span class="stepDot">5 Anlage</span><span class="stepDot">6 Grenzen</span><span class="stepDot">7 Start</span></div>
 
+<div class="actions" style="margin-bottom:18px"><button id="prevTop" onclick="move(-1)" disabled>← Zurück</button><button id="nextTop" class="primary" onclick="move(1)">Weiter →</button></div>
 <section class="page active">
 <h2>Grundeinstellungen</h2><p class="muted">Zuerst legen wir nur die Anlage selbst an.</p>
 <div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('latitude') or ''))}"><label>Längengrad (optional)</label><input id="longitude" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('longitude') or ''))}"></div>
@@ -81,7 +82,7 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <section class="page"><h2>Erkannte Komponenten</h2><div class="card"><p class="muted">Nach erfolgreichen Verbindungstests erscheinen hier erkannte Kessel, Speicher, Batterie, PV, Zähler usw.</p><div id="discoveredComponents">Noch keine Komponenten erkannt.</div></div></section>
 <section class="page"><h2>Anlage & Verbindungen</h2><p class="muted">INS-EI schlägt aus den erkannten Komponenten eine Grundtopologie vor. Du kannst Verbindungen entfernen oder ergänzen.</p><div id="topologyEditor"></div><div class="card"><h3>Verbindung ergänzen</h3><select id="relFrom"></select> → <select id="relType"><option>HEATS</option><option>SUPPLIES</option><option>CHARGES</option><option>CONNECTED_TO</option></select> → <select id="relTo"></select> <button onclick="addRelation()">Hinzufügen</button></div></section>
 <section class="page"><h2>Grenzen</h2><p class="muted">Nur harte technische Grenzen und Komfortvorgaben. Diese Werte darf Learning niemals überschreiben.</p><div id="limitsEditor"></div><label class="pluginChoice"><input id="limitsConfirmed" type="checkbox" onchange="updateStart()"><span><b>Grenzen geprüft und bestätigt</b><small>Erforderlich bevor Learning / Shadow gestartet werden kann.</small></span></label></section>
-<section class="page"><h2>Learning / Shadow starten</h2><div class="card"><h3>Inbetriebnahmeprüfung</h3><div id="commissioningCheck"></div><p>INS-EI speichert die Anlage lokal und startet ohne autonome Steuerhoheit.</p><button id="startButton" class="primary" onclick="save()" disabled>Anlage speichern & Learning starten</button><div id="saveResult"></div></div></section>
+<section class="page"><h2>Learning / Shadow starten</h2><div class="card"><h3>Inbetriebnahmeprüfung</h3><div id="commissioningCheck"></div><p>INS-EI speichert die Anlage lokal und startet ohne autonome Steuerhoheit.</p><button id="startButton" class="primary" onclick="save()" disabled>Konfiguration speichern</button><div id="saveResult"></div></div></section>
 
 <div class="actions"><button id="prev" onclick="move(-1)" disabled>← Zurück</button><button id="next" class="primary" onclick="move(1)">Weiter →</button></div>
 <script>
@@ -102,7 +103,9 @@ function show(){{
   pages.forEach((x,i)=>x.classList.toggle('active',i===step));
   dots.forEach((x,i)=>x.classList.toggle('active',i===step));
   document.getElementById('prev').disabled=step===0;
+  document.getElementById('prevTop').disabled=step===0;
   document.getElementById('next').style.visibility=step===pages.length-1?'hidden':'visible';
+  document.getElementById('nextTop').style.visibility=step===pages.length-1?'hidden':'visible';
 }}
 function move(n){{step=Math.max(0,Math.min(pages.length-1,step+n));show();}}
 function selectedIds(){{return [...document.querySelectorAll('[data-select-plugin]:checked')].map(x=>x.dataset.selectPlugin);}}
@@ -175,7 +178,14 @@ async function save(){{
   const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.plugin.replaceAll('-','_')+'_main'}}));
   const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[]}};
   const r=await fetch('setup/save',{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
-  const d=await r.json(); saveResult.textContent=d.saved?'Gespeichert. App jetzt neu starten.':'Fehler';
+  const d=await r.json();
+  if(r.ok && d.saved && d.verified){{
+    saveResult.className='ok';
+    saveResult.innerHTML='✓ Konfiguration dauerhaft gespeichert und geprüft.<br><small>Neustart erforderlich, damit Änderungen aktiv werden.</small>';
+  }} else {{
+    saveResult.className='bad';
+    saveResult.textContent='✗ Speichern fehlgeschlagen: '+(d.detail||'unbekannter Fehler');
+  }}
 }}
 syncPlugins(); renderDiscovered(); renderTopology(); renderLimits(); updateStart(); show();
 </script></main></body></html>""")
