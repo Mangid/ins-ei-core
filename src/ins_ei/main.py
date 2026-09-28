@@ -36,6 +36,8 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.learning.fit_passive_baselines()
         runtime.learning.fit_thermal_context_baseline()
         runtime.learning.fit_dhw_baseline()
+        runtime.learning.fit_electrical_baseline()
+        runtime.learning.fit_pv_orientation_baseline()
 
 
 def main() -> None:
