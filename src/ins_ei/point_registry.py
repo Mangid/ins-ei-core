@@ -32,6 +32,8 @@ _DEFINITIONS = [
     PointDefinition("electrical.current_l2", "A", float, 30, "Current phase 2."),
     PointDefinition("electrical.current_l3", "A", float, 30, "Current phase 3."),
     PointDefinition("electrical.frequency", "Hz", float, 30, "Electrical frequency."),
+    PointDefinition("electrical.voltage_dc", "V", float, 30, "DC bus/device voltage."),
+    PointDefinition("electrical.current_dc", "A", float, 30, "Signed DC current; positive/negative direction is provider-defined diagnostics unless paired with canonical flow points."),
 
     # PV and battery: fast control state plus slower capacity information.
     PointDefinition("pv.generation_power", "W", float, 15, "Current PV generation power, non-negative."),
