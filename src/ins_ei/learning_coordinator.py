@@ -258,6 +258,52 @@ class LearningCoordinator:
         self.historian.save_model(model)
         return {"fitted": True, "contexts": fit}
 
+
+    def fit_dhw_baseline(self) -> dict:
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"]}
+        rows = self.historian.numeric_series(
+            self.site_id, "dhw", "thermal.temperature", limit=20000
+        )
+        cooling, heating = [], []
+        for i, a in enumerate(rows):
+            ta = datetime.fromisoformat(a["observed_at"])
+            b = None
+            for candidate in rows[i+1:]:
+                dt_s = (datetime.fromisoformat(candidate["observed_at"]) - ta).total_seconds()
+                if 300 <= dt_s <= 900:
+                    b = candidate
+                    break
+                if dt_s > 900:
+                    break
+            if b is None:
+                continue
+            tb = datetime.fromisoformat(b["observed_at"])
+            dt_h = (tb - ta).total_seconds() / 3600.0
+            rate = (b["value"] - a["value"]) / dt_h
+            (heating if rate > 0.5 else cooling).append(rate)
+
+        def summary(values):
+            if not values:
+                return None
+            ordered = sorted(values)
+            return {
+                "samples": len(values),
+                "mean_delta_c_per_h": sum(values)/len(values),
+                "median_delta_c_per_h": ordered[len(ordered)//2],
+            }
+
+        fit = {"cooling": summary(cooling), "heating_events": summary(heating)}
+        try:
+            model = self.models.get("thermal-baseline")
+        except ValueError:
+            return {"fitted": False, "reason": "thermal-baseline model missing"}
+        model.metadata["dhw_fit"] = fit
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        self.historian.save_model(model)
+        return {"fitted": True, "dhw": fit}
+
     def register_model(
         self,
         model: LearningModelRecord,
