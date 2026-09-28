@@ -60,9 +60,10 @@ class VictronGXPlugin(Plugin):
 
             battery_unit = int(self.config.get("battery_unit_id", 225))
             grid_unit = int(self.config.get("grid_unit_id", 30))
-            pv_units = [
-                int(x) for x in self.config.get("pv_unit_ids", [22, 23])
-            ]
+            raw_pv_units = self.config.get("pv_unit_ids", [22, 23])
+            if isinstance(raw_pv_units, str):
+                raw_pv_units = [x.strip() for x in raw_pv_units.split(",") if x.strip()]
+            pv_units = [int(x) for x in raw_pv_units]
 
             # com.victronenergy.battery:
             # 259 voltage /100 V, 261 signed current /10 A, 262 temp /10 C,
