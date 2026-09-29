@@ -24,13 +24,18 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.32 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.33 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
  <div class="card"><div class="title">Safety</div><div id="safety" class="big">…</div><div id="safetyReason"></div></div>
  <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div id="learningDetail">registrierte Modelle</div></div>
  <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
+</div>
+<div class="card"><div class="title">Thermal Shadow · supervised</div>
+ <div id="thermalShadow">Lade…</div>
+ <div style="margin-top:10px"><button onclick="heatOnce(true)">WW einmal laden</button> <button onclick="heatOnce(false)">Heat Once beenden</button> <span id="heatOnceResult"></span></div>
+ <small>Physische Befehle werden nur nach deinem Klick ausgeführt. Keine automatische Freigabe.</small>
 </div>
 <div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="./site/schema.svg"></iframe></div>
 <div class="grid">
@@ -86,11 +91,24 @@ function modelDetail(m){
 }
 function showModel(id){const m=window.learningModelData.find(x=>x.id===id);modelDetails.innerHTML=m?modelDetail(m):''}
 
+
+async function heatOnce(enabled){
+ const label=enabled?'WW-Einmalladung STARTEN':'WW-Einmalladung BEENDEN';
+ if(!confirm(label+'? Dies sendet einen physischen Befehl an die ÖkoFEN-Regelung.')) return;
+ heatOnceResult.textContent=' sende…';
+ try{
+   const r=await fetch(api('/supervised/oekofen/heat-once?enabled='+enabled),{method:'POST'});
+   const text=await r.text(); let d={}; try{d=JSON.parse(text)}catch(_e){}
+   heatOnceResult.textContent=r.ok?' ✓ ausgeführt · '+(d.correlation_id||''):' ✗ '+(d.detail||text||('HTTP '+r.status));
+   heatOnceResult.className=r.ok?'ok':'bad';
+ }catch(e){heatOnceResult.textContent=' ✗ '+e;heatOnceResult.className='bad'}
+}
+
 async function refresh(){
  const results=await Promise.allSettled([
-   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy')
+   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/state')
  ]);
- const [rh,rs,rl,rls,ra]=results;
+ const [rh,rs,rl,rls,ra,rstate]=results;
  if(rh.status==='fulfilled'){
    const h=rh.value; health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site;
    plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('');
@@ -109,6 +127,17 @@ async function refresh(){
    if(rl.status==='fulfilled') models.textContent=rl.value.models.length+' · '+ls.phase;
    learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale';
  } else {learningDetail.textContent=rls.reason.message}
+ if(rstate.status==='fulfilled'){
+   const pts=rstate.value.points||[];
+   const dhwDecision=pts.find(x=>x.component_id==='dhw'&&x.point==='decision.dhw');
+   const genDecision=pts.find(x=>x.component_id==='pellet_boiler'&&x.point==='decision.heat_generator');
+   const heatOnceState=pts.find(x=>x.component_id==='dhw'&&x.point==='state.one_time_charge');
+   const peMode=pts.find(x=>x.component_id==='pellet_boiler'&&x.point==='state.operating_mode');
+   thermalShadow.innerHTML='<b>DHW:</b> '+(dhwDecision?dhwDecision.value:'–')+
+     ' &nbsp; <b>Heat Once:</b> '+(heatOnceState?heatOnceState.value:'–')+
+     '<br><b>Wärmeerzeuger:</b> '+(genDecision?genDecision.value:'–')+
+     ' &nbsp; <b>pe_mode:</b> '+(peMode?peMode.value:'–');
+ }
  if(ra.status==='fulfilled'){
    const a=ra.value;auto.textContent=a.capabilities.length;
    autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('');
