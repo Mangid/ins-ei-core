@@ -29,6 +29,7 @@ def build_runtime(site_path: str, plugin_dir: str = "plugins", data_dir: str = "
 
 
 def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.Event) -> None:
+    last_bus_publish = 0.0
     while not stop.wait(interval_seconds):
         runtime.collect_once()
         runtime.evaluate_strategy()
@@ -39,6 +40,10 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.learning.fit_electrical_baseline()
         runtime.learning.fit_pv_orientation_baseline()
         runtime.learning.fit_battery_behavior_baseline()
+        now = time.monotonic()
+        if now - last_bus_publish >= 900:
+            runtime.publish_bus_snapshots()
+            last_bus_publish = now
 
 
 def main() -> None:
