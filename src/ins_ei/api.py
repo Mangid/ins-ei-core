@@ -28,7 +28,7 @@ def create_app(runtime: Runtime) -> FastAPI:
     def configuration():
         return setup_html(
             runtime.catalog.installed().values(),
-            version="0.1.34",
+            version="0.1.35",
             existing_site=setup_store.load() or runtime.site.model_dump(mode="json"),
         )
 
