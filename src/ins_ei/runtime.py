@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -69,11 +70,17 @@ class Runtime:
         )
         self.audit = AuditLog(site.site.id)
         self.thermal_shadow = ThermalShadow(self.graph, self.state)
-        self.bus = BusClient(
-            site.site.id,
-            dict(site.apps.get("bus") or {}),
-            core_version="0.1.34",
-        )
+        bus_config = dict(site.apps.get("bus") or {})
+        if os.getenv("INS_EI_MQTT_HOST"):
+            bus_config.update({
+                "enabled": os.getenv("INS_EI_MQTT_ENABLED", "true").lower() in {"1","true","yes","on"},
+                "host": os.getenv("INS_EI_MQTT_HOST"),
+                "port": int(os.getenv("INS_EI_MQTT_PORT", "8883")),
+                "username": os.getenv("INS_EI_MQTT_USERNAME"),
+                "password": os.getenv("INS_EI_MQTT_PASSWORD"),
+                "tls": os.getenv("INS_EI_MQTT_TLS", "true").lower() in {"1","true","yes","on"},
+            })
+        self.bus = BusClient(site.site.id, bus_config, core_version="0.1.34")
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
