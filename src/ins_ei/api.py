@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
 
@@ -78,6 +80,33 @@ def create_app(runtime: Runtime) -> FastAPI:
     @app.get("/learning/status")
     def learning_status() -> dict:
         return runtime.learning.baseline_status()
+
+
+    @app.get("/learning/summary")
+    def learning_summary() -> dict:
+        return runtime.learning.summary()
+
+    @app.get("/learning/summary.txt")
+    def learning_summary_text() -> Response:
+        summary = runtime.learning.summary()
+        lines = [
+            f"INS-EI Learning Summary · {summary['site_id']}",
+            f"Generated: {summary['generated_at']}",
+            f"History: {summary['history']['duration_hours']:.1f} h · {summary['history']['samples']} Samples · {summary['history']['signals']} Signale",
+            f"Overall phase: {summary['phase']}",
+            "",
+        ]
+        for model in summary["models"]:
+            lines.append(f"{model['id']} · {model['status']} · {model.get('phase') or '–'}")
+            lines.append(f"  last_fit: {model.get('last_fit_at') or '–'}")
+            lines.append(f"  reason: {model.get('reason') or '–'}")
+            if model.get("evidence_gaps"):
+                lines.append("  evidence_gaps: " + ", ".join(model["evidence_gaps"]))
+            for key in ("thermal_context", "dhw", "battery", "electrical", "orientations", "inputs"):
+                if model.get(key):
+                    lines.append(f"  {key}: " + json.dumps(model[key], ensure_ascii=False, sort_keys=True))
+            lines.append("")
+        return Response(content="\n".join(lines), media_type="text/plain; charset=utf-8")
 
     @app.get("/learning/models")
     def learning_models() -> dict:
