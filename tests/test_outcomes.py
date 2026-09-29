@@ -50,6 +50,7 @@ def test_outcome_tracks_expected_delta_and_residual(tmp_path):
 def test_stale_outcome_is_unobservable(tmp_path):
     now = datetime.now().astimezone()
     state = StateStore(default_stale_after_seconds=10)
+    state.set_stale_threshold("buffer", "thermal.temperature_upper", 10)
     put(state, 50, now)
     historian = Historian(tmp_path / "h.db")
     tracker = OutcomeTracker(state, historian, "site")
