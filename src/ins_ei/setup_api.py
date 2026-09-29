@@ -56,7 +56,7 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
 
     @router.get("/status")
     def status():
-        return {"configured": store.exists(), "site_path": str(store.site_path)}
+        return {"configured": store.exists(), "site_path": str(store.site_path), "central_password_configured": secrets.has("central.mqtt_password")}
 
     @router.get("/plugins")
     def plugins():
