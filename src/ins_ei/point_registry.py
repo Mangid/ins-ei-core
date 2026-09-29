@@ -73,6 +73,8 @@ _DEFINITIONS = [
     PointDefinition("state.pump", None, object, 60, "Pump state."),
     PointDefinition("state.relay1", None, object, 60, "Relay 1 state."),
     PointDefinition("state.one_time_charge", None, object, 60, "One-time DHW charge state."),
+    PointDefinition("decision.heat_generator", None, object, 120, "Shadow recommendation for heat-generator enable state."),
+    PointDefinition("decision.dhw", None, object, 120, "Shadow recommendation for DHW action."),
 ]
 
 POINTS: dict[str, PointDefinition] = {definition.name: definition for definition in _DEFINITIONS}
