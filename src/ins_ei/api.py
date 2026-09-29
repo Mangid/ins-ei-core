@@ -180,6 +180,19 @@ def create_app(runtime: Runtime) -> FastAPI:
             ]
         }
 
+
+    @app.post("/supervised/oekofen/heat-once")
+    def supervised_oekofen_heat_once(enabled: bool = True) -> dict:
+        instances = [
+            instance_id for instance_id, plugin_id in runtime.instance_plugin_ids.items()
+            if plugin_id == "oekofen"
+        ]
+        if len(instances) != 1:
+            raise ValueError("OEKOFEN_INSTANCE_NOT_UNIQUE")
+        return runtime.execute_supervised(
+            instances[0], "dhw.request_once", {"enabled": enabled}
+        )
+
     @app.post("/strategy/evaluate")
     def evaluate_strategy() -> dict:
         decision = runtime.evaluate_strategy()
