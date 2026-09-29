@@ -5,7 +5,7 @@ import json
 from fastapi.responses import HTMLResponse
 
 
-def setup_html(plugin_items=None, version: str = "0.1.28", existing_site=None) -> HTMLResponse:
+def setup_html(plugin_items=None, version: str = "0.1.35", existing_site=None) -> HTMLResponse:
     existing_site = existing_site or {}
     existing_instances = existing_site.get('plugin_instances', [])
     instances_by_plugin = {}
@@ -122,7 +122,14 @@ button{{padding:10px 14px;border:0;border-radius:8px;cursor:pointer}}button.prim
 <div class="actions" style="margin-bottom:18px"><button id="prevTop" onclick="move(-1)" disabled>← Zurück</button><button id="nextTop" class="primary" onclick="move(1)">Weiter →</button></div>
 <section class="page active">
 <h2>Grundeinstellungen</h2><p class="muted">Zuerst legen wir nur die Anlage selbst an.</p>
-<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('latitude') is None else str(existing_site.get('site', {}).get('location', {}).get('latitude')))}"><label>Längengrad (optional)</label><input id="longitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('longitude') is None else str(existing_site.get('site', {}).get('location', {}).get('longitude')))}"></div>
+<div class="card"><label>Name / ID</label><input id="siteId" type="text" value="{escape(str(existing_site.get('site', {}).get('id', 'home-v1')))}"><label>Zeitzone</label><input id="timezone" type="text" value="{escape(str(existing_site.get('site', {}).get('timezone', 'Europe/Vienna')))}"><h3>Standort</h3><label>Ort</label><input id="locationName" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('name') or ''))}"><label>PLZ</label><input id="postalCode" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('postal_code') or ''))}"><label>Land</label><input id="country" type="text" value="{escape(str(existing_site.get('site', {}).get('location', {}).get('country') or 'AT'))}"><label>Breitengrad (optional)</label><input id="latitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('latitude') is None else str(existing_site.get('site', {}).get('location', {}).get('latitude')))}"><label>Längengrad (optional)</label><input id="longitude" type="number" step="any" value="{escape('' if existing_site.get('site', {}).get('location', {}).get('longitude') is None else str(existing_site.get('site', {}).get('location', {}).get('longitude')))}"><h3>Zentrale</h3>
+<label class="pluginChoice"><input id="centralEnabled" type="checkbox" {"checked" if existing_site.get("central", {}).get("enabled") else ""}><span><b>Mit INS-EI Servicezentrale verbinden</b><small>MQTT/TLS · Core funktioniert auch ohne Zentrale weiter.</small></span></label>
+<label>Broker</label><input id="centralHost" type="text" value="{escape(str(existing_site.get('central', {}).get('host') or 'mqtt.ins-enertech.net'))}">
+<label>Port</label><input id="centralPort" type="number" value="{escape(str(existing_site.get('central', {}).get('port') or 8883))}">
+<label>Benutzer</label><input id="centralUsername" type="text" value="{escape(str(existing_site.get('central', {}).get('username') or ''))}">
+<label>Passwort</label><input id="centralPassword" type="password" value="" placeholder="gespeichertes Passwort bleibt erhalten">
+<label class="pluginChoice"><input id="centralTls" type="checkbox" {"checked" if existing_site.get("central", {}).get("tls", True) else ""}><span><b>TLS verwenden</b></span></label>
+<button onclick="testCentral()">Verbindung testen</button> <span id="centralResult"></span></div>
 </section>
 
 <section class="page">
@@ -180,6 +187,15 @@ function syncPlugins(){{
   const ids=selectedIds();
   document.querySelectorAll('[data-config-plugin]').forEach(x=>x.hidden=!ids.includes(x.dataset.configPlugin));
   document.getElementById('noneSelected').hidden=ids.length>0;
+}}
+
+async function testCentral(){{
+ centralResult.className='';centralResult.textContent=' teste…';
+ const payload={{site_id:siteId.value,host:centralHost.value,port:Number(centralPort.value),tls:centralTls.checked,username:centralUsername.value,password:centralPassword.value}};
+ try{{
+  const r=await fetch(api('setup/test-central'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
+  const d=await r.json();centralResult.className=r.ok?'ok':'bad';centralResult.textContent=r.ok?' ✓ verbunden':' ✗ '+(d.detail||'Fehler');
+ }}catch(e){{centralResult.className='bad';centralResult.textContent=' ✗ '+e}}
 }}
 function instanceConfig(card){{
   const o={{}};
@@ -332,7 +348,7 @@ async function save(){{
     }});
   }});
   const byId=new Map(); discoveredComponents.filter(x=>x.ready).forEach(x=>byId.set(x.id,{{id:x.id,kind:x.kind,provider:x.provider||null,properties:x.properties||{{}}}}));
-  const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[],commissioning:{{status:'CONFIRMED',confirmed_at:new Date().toISOString(),confirmed_by:'installer',topology_confirmed:true,constraints_confirmed:true,notes:[]}}}};
+  const payload={{site_id:siteId.value,timezone:timezone.value,location:{{name:locationName.value||null,postal_code:postalCode.value||null,country:country.value||'AT',latitude:latitude.value?Number(latitude.value):null,longitude:longitude.value?Number(longitude.value):null}},central:{{enabled:centralEnabled.checked,host:centralHost.value,port:Number(centralPort.value),tls:centralTls.checked,username:centralUsername.value||null}},central_password:centralPassword.value,plugin_instances,components:[...byId.values()],relations,connections:[],constraints:buildConstraints(),apps:{{heating:{{enabled:true}},energy:{{enabled:true}}}},strategy:{{modules:[]}},site_rules:[],commissioning:{{status:'CONFIRMED',confirmed_at:new Date().toISOString(),confirmed_by:'installer',topology_confirmed:true,constraints_confirmed:true,notes:[]}}}};
   try{{
     const r=await fetch(api('setup/save'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify(payload)}});
     const text=await r.text();
