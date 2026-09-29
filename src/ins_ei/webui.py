@@ -24,7 +24,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.31 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.32 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -57,7 +57,10 @@ function kv(obj, units={}){
  return '<dl>'+Object.entries(obj||{}).map(([k,v])=>'<dt>'+k.replaceAll('_',' ')+'</dt><dd>'+fmt(v)+(units[k]||'')+'</dd>').join('')+'</dl>'
 }
 function modelDetail(m){
- const md=m.metadata||{}, fit=md.fit||{};
+ const md=m.metadata||{};
+ const fit=m.id==='battery-baseline'?(md.battery_fit||md.fit||{}):
+           m.id==='electrical-baseline'?(md.electrical_fit||md.fit||{}):
+           (md.fit||md.generic_fit||{});
  let html='<div class="modelDetail"><b>'+m.id+'</b><br><span class="muted">'+(m.reason||'')+'</span>'+
    '<dl><dt>Phase</dt><dd>'+(md.phase||'–')+'</dd><dt>Letzter Fit</dt><dd>'+(md.last_fit_at||'–')+'</dd><dt>Status</dt><dd>'+m.status+'</dd></dl>';
  if(m.id==='thermal-baseline'){
