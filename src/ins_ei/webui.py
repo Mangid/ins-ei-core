@@ -24,7 +24,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.34 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.35 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -32,6 +32,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
  <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div id="learningDetail">registrierte Modelle</div></div>
  <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
 </div>
+<div class="card"><div class="title">Zentrale · MQTT Bus</div><div id="busStatus" class="big">…</div><div id="busDetail"></div><div style="margin-top:10px"><button onclick="publishBus()">Snapshot jetzt senden</button> <span id="busResult"></span></div></div>
 <div class="card"><div class="title">Thermal Shadow · supervised</div>
  <div id="thermalShadow">Lade…</div>
  <div style="margin-top:10px"><button onclick="heatOnce(true)">WW einmal laden</button> <button onclick="heatOnce(false)">Heat Once beenden</button> <span id="heatOnceResult"></span></div>
@@ -92,6 +93,14 @@ function modelDetail(m){
 function showModel(id){const m=window.learningModelData.find(x=>x.id===id);modelDetails.innerHTML=m?modelDetail(m):''}
 
 
+
+async function publishBus(){
+ busResult.textContent=' sende…';
+ try{const r=await fetch(api('/bus/publish'),{method:'POST'});const d=await r.json();
+ busResult.className=r.ok?'ok':'bad';busResult.textContent=r.ok?' ✓ '+JSON.stringify(d.published):' ✗ Fehler';
+ }catch(e){busResult.className='bad';busResult.textContent=' ✗ '+e}
+}
+
 async function heatOnce(enabled){
  const label=enabled?'WW-Einmalladung STARTEN':'WW-Einmalladung BEENDEN';
  if(!confirm(label+'? Dies sendet einen physischen Befehl an die ÖkoFEN-Regelung.')) return;
@@ -106,9 +115,11 @@ async function heatOnce(enabled){
 
 async function refresh(){
  const results=await Promise.allSettled([
-   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/state')
+   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/state'),j('/bus/status')
  ]);
- const [rh,rs,rl,rls,ra,rstate]=results;
+ const [rh,rs,rl,rls,ra,rstate,rbus]=results;
+ if(rbus.status==='fulfilled'){const b=rbus.value;busStatus.textContent=b.enabled?(b.connected?'VERBUNDEN':'GETRENNT'):'DEAKTIVIERT';busStatus.className='big '+(b.connected?'ok':b.enabled?'bad':'warn');busDetail.textContent=(b.host||'–')+':'+(b.port||'–')+' · '+b.site_id}
+ else {busStatus.textContent='API FEHLER';busStatus.className='big bad'}
  if(rh.status==='fulfilled'){
    const h=rh.value; health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site;
    plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('');
