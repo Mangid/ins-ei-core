@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException
 from ins_ei.plugin_loader import PluginCatalog
 from ins_ei.setup_store import SetupStore
 from ins_ei.config import SiteConfig
+from ins_ei.secrets import SecretStore
+from ins_ei.bus import BusClient
 
 
 
@@ -50,6 +52,7 @@ def _infer_components(points) -> list[dict[str, Any]]:
 
 def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
     router = APIRouter(prefix="/setup", tags=["setup"])
+    secrets = SecretStore(store.data_dir)
 
     @router.get("/status")
     def status():
@@ -117,6 +120,31 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
             except Exception:
                 pass
 
+
+    @router.post("/test-central")
+    def test_central(payload: dict[str, Any]):
+        config = {
+            "enabled": True,
+            "host": str(payload.get("host") or "").strip(),
+            "port": int(payload.get("port") or 8883),
+            "tls": bool(payload.get("tls", True)),
+            "username": str(payload.get("username") or "").strip(),
+            "password": str(payload.get("password") or secrets.get("central.mqtt_password") or ""),
+        }
+        if not config["host"] or not config["username"] or not config["password"]:
+            raise HTTPException(400, "CENTRAL_MQTT_CONFIG_INCOMPLETE")
+        client = BusClient(str(payload.get("site_id") or "setup-test"), config, "setup-test")
+        client.start()
+        deadline=time.monotonic()+6.0
+        try:
+            while time.monotonic()<deadline and not client.connected:
+                time.sleep(.1)
+            if not client.connected:
+                raise HTTPException(400, "CENTRAL_MQTT_CONNECTION_FAILED")
+            return {"ok":True,"host":config["host"],"port":config["port"],"tls":config["tls"]}
+        finally:
+            client.stop()
+
     @router.post("/save")
     def save(payload: dict[str, Any]):
         site = {
@@ -132,13 +160,17 @@ def create_setup_router(catalog: PluginCatalog, store: SetupStore) -> APIRouter:
             "connections": payload.get("connections") or [],
             "constraints": payload.get("constraints") or [],
             "apps": payload.get("apps") or {},
+            "central": payload.get("central") or {},
             "strategy": payload.get("strategy") or {"modules": []},
             "site_rules": payload.get("site_rules") or [],
             "commissioning": payload.get("commissioning") or {},
         }
+        central_password = str(payload.get("central_password") or "")
         # Validate the exact document before touching the persistent Site.
         validated = SiteConfig.model_validate(site)
         path = store.save(validated.model_dump(mode="json"))
+        if central_password:
+            secrets.set("central.mqtt_password", central_password)
         persisted = store.load()
         if persisted is None:
             raise HTTPException(status_code=500, detail="SITE_SAVE_VERIFY_FAILED")
