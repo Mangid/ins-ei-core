@@ -66,7 +66,7 @@ function modelDetail(m){
  if(m.id==='thermal-baseline'){
    const ctx=md.thermal_context_fit||{};
    html+='<h4>Puffer · Kontext</h4>';
-   Object.entries(ctx).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{mean_delta_c_per_h:' °C/h',median_delta_c_per_h:' °C/h',min_delta_c_per_h:' °C/h',max_delta_c_per_h:' °C/h',mean_outdoor_c:' °C'})});
+   Object.entries(ctx).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{mean_delta_c_per_h:' °C/h',median_delta_c_per_h:' °C/h',p025_delta_c_per_h:' °C/h',p975_delta_c_per_h:' °C/h',raw_min_delta_c_per_h:' °C/h',raw_max_delta_c_per_h:' °C/h',mean_outdoor_c:' °C'})});
    if(md.dhw_fit){html+='<h4>Warmwasser</h4>';Object.entries(md.dhw_fit).forEach(([name,x])=>{if(x)html+='<b>'+name+'</b>'+kv(x,{mean_delta_c_per_h:' °C/h',median_delta_c_per_h:' °C/h'})})}
  } else if(m.id==='battery-baseline'){
    html+='<h4>Batterie</h4>';
@@ -78,7 +78,7 @@ function modelDetail(m){
  } else if(m.id==='pv-orientation-baseline'){
    const ori=md.orientation_fit||{}, inputs=md.input_fit||{};
    html+='<h4>Ausrichtungen</h4>';
-   Object.entries(ori).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{capacity_kwp:' kWp',energy_wh_observed:' Wh',energy_wh_per_kwp:' Wh/kWp'})});
+   Object.entries(ori).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{capacity_kwp:' kWp',maximum_w:' W',mean_w:' W',maximum_w_per_kwp:' W/kWp',energy_wh_observed:' Wh',energy_wh_per_kwp:' Wh/kWp'})});
    html+='<h4>PV-Eingänge</h4>';
    Object.entries(inputs).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{maximum_w:' W',mean_w:' W',energy_wh_observed:' Wh',maximum_w_per_kwp:' W/kWp'})});
  }
