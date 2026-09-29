@@ -287,12 +287,17 @@ class LearningCoordinator:
             if not rates:
                 continue
             ordered = sorted(rates)
+            trim = int(len(ordered) * 0.025) if len(ordered) >= 40 else 0
+            robust = ordered[trim:len(ordered)-trim] if trim and len(ordered) > 2*trim else ordered
             fit[bucket] = {
                 "samples": len(rates),
-                "mean_delta_c_per_h": sum(rates) / len(rates),
-                "median_delta_c_per_h": ordered[len(ordered)//2],
-                "min_delta_c_per_h": ordered[0],
-                "max_delta_c_per_h": ordered[-1],
+                "robust_samples": len(robust),
+                "mean_delta_c_per_h": sum(robust) / len(robust),
+                "median_delta_c_per_h": robust[len(robust)//2],
+                "p025_delta_c_per_h": robust[0],
+                "p975_delta_c_per_h": robust[-1],
+                "raw_min_delta_c_per_h": ordered[0],
+                "raw_max_delta_c_per_h": ordered[-1],
                 "mean_outdoor_c": (
                     sum(outdoor_by_bucket[bucket]) / len(outdoor_by_bucket[bucket])
                     if outdoor_by_bucket[bucket] else None
