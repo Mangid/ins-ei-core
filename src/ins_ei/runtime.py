@@ -22,6 +22,7 @@ from .model_registry import ModelRegistry
 from .autonomy import AutonomyGate
 from .learning_coordinator import LearningCoordinator
 from .thermal_shadow import ThermalShadow
+from .bus import BusClient
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -68,6 +69,11 @@ class Runtime:
         )
         self.audit = AuditLog(site.site.id)
         self.thermal_shadow = ThermalShadow(self.graph, self.state)
+        self.bus = BusClient(
+            site.site.id,
+            dict(site.apps.get("bus") or {}),
+            core_version="0.1.34",
+        )
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
@@ -110,6 +116,7 @@ class Runtime:
     def start(self) -> None:
         for instance_id in self.plugins:
             self.start_instance(instance_id)
+        self.bus.start()
 
     def collect_instance(self, instance_id: str) -> None:
         managed = self.plugins[instance_id]
@@ -227,6 +234,7 @@ class Runtime:
             self.plugins[instance_id] = ManagedPlugin(plugin=plugin)
 
     def stop(self) -> None:
+        self.bus.stop()
         for instance_id, managed in self.plugins.items():
             managed.status = PluginStatus.STOPPING
             try:
@@ -318,6 +326,15 @@ class Runtime:
             sum(1 for result in results if result.status == "UNOBSERVABLE"),
         )
         return results
+
+
+    def publish_bus_snapshots(self) -> dict:
+        health = self.health()
+        learning = self.learning.summary()
+        return {
+            "health": self.bus.publish("health", "health.snapshot", health, retain=True),
+            "learning": self.bus.publish("learning", "learning.snapshot", learning, retain=True),
+        }
 
     def health(self) -> dict:
         now = datetime.now().astimezone()
