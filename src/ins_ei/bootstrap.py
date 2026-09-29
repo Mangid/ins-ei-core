@@ -17,7 +17,7 @@ def create_setup_app(plugin_dir: str, data_dir: str) -> FastAPI:
 
     @app.get("/")
     def index():
-        return setup_html(catalog.installed().values(), version="0.1.32", existing_site=store.load())
+        return setup_html(catalog.installed().values(), version="0.1.33", existing_site=store.load())
 
     app.include_router(create_setup_router(catalog, store))
     return app
