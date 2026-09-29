@@ -551,6 +551,54 @@ class LearningCoordinator:
         self.historian.save_model(model)
         return {"fitted": True, "fit": fit}
 
+
+    def summary(self) -> dict:
+        """Stable, transport-safe diagnostic projection of local learning state."""
+        baseline = self.baseline_status()
+        models = []
+        for model in self.models.all():
+            md = model.metadata or {}
+            item = {
+                "id": model.id,
+                "version": model.version,
+                "capability": model.capability,
+                "status": model.status.value if hasattr(model.status, "value") else str(model.status),
+                "phase": md.get("phase"),
+                "last_fit_at": md.get("last_fit_at"),
+                "reason": model.reason,
+                "commissioning_status": md.get("commissioning_status"),
+            }
+            if model.id == "thermal-baseline":
+                item["thermal_context"] = md.get("thermal_context_fit") or {}
+                item["dhw"] = md.get("dhw_fit") or {}
+                contexts = item["thermal_context"]
+                item["evidence_gaps"] = [
+                    name for name in ("PASSIVE_COOLING", "PELLET_HEATING", "POWER_TO_HEAT")
+                    if name not in contexts
+                ]
+            elif model.id == "battery-baseline":
+                item["battery"] = md.get("battery_fit") or md.get("fit") or {}
+            elif model.id == "electrical-baseline":
+                item["electrical"] = md.get("electrical_fit") or md.get("fit") or {}
+            elif model.id == "pv-orientation-baseline":
+                item["orientations"] = md.get("orientation_fit") or {}
+                item["inputs"] = md.get("input_fit") or {}
+                item["commissioned_inputs"] = md.get("commissioned_inputs") or {}
+            models.append(item)
+        return {
+            "site_id": self.site_id,
+            "generated_at": datetime.now().astimezone().isoformat(),
+            "history": {
+                "duration_hours": baseline["duration_hours"],
+                "samples": baseline["samples"],
+                "signals": baseline["signals"],
+                "first_observed_at": baseline["first_observed_at"],
+                "last_observed_at": baseline["last_observed_at"],
+            },
+            "phase": baseline["phase"],
+            "models": models,
+        }
+
     def register_model(
         self,
         model: LearningModelRecord,
