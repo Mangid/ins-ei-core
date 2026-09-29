@@ -24,7 +24,7 @@ button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.30 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.31 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
 <main>
 <div class="grid">
  <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
@@ -97,7 +97,8 @@ async function refresh(){
  } else {safety.textContent='API FEHLER';safety.className='big bad';safetyReason.textContent=rs.reason.message}
  if(rl.status==='fulfilled'){
    const l=rl.value;window.learningModelData=l.models;
-   learningModels.innerHTML=l.models.map(x=>'<tr class="modelRow" onclick="showModel(\''+x.id+'\')"><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('');
+   learningModels.innerHTML=l.models.map(x=>'<tr class="modelRow" data-model-id="'+x.id+'"><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('');
+   learningModels.querySelectorAll('[data-model-id]').forEach(row=>row.addEventListener('click',()=>showModel(row.dataset.modelId)));
    models.textContent=l.models.length;
  } else {models.textContent='API FEHLER';models.className='big bad';learningDetail.textContent=rl.reason.message}
  if(rls.status==='fulfilled'){
