@@ -21,6 +21,7 @@ from .outcomes import OutcomeTracker
 from .model_registry import ModelRegistry
 from .autonomy import AutonomyGate
 from .learning_coordinator import LearningCoordinator
+from .thermal_shadow import ThermalShadow
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -66,6 +67,7 @@ class Runtime:
             self.state, self.historian, site.site.id, self.context_version
         )
         self.audit = AuditLog(site.site.id)
+        self.thermal_shadow = ThermalShadow(self.graph, self.state)
         self.catalog = PluginCatalog(plugin_dir)
         self.catalog.discover()
         self.plugins: dict[str, ManagedPlugin] = {}
@@ -203,6 +205,9 @@ class Runtime:
     def collect_once(self) -> None:
         for instance_id in self.plugins:
             self.collect_instance(instance_id)
+        points = self.thermal_shadow.evaluate()
+        self.state.ingest(points)
+        self.historian.record_points(self.site.site.id, points, self.context_version)
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()
