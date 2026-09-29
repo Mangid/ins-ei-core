@@ -32,6 +32,22 @@ def create_app(runtime: Runtime) -> FastAPI:
             existing_site=setup_store.load() or runtime.site.model_dump(mode="json"),
         )
 
+
+    @app.get("/bus/status")
+    def bus_status() -> dict:
+        return {
+            "enabled": runtime.bus.enabled,
+            "connected": runtime.bus.connected,
+            "host": runtime.bus.config.get("host"),
+            "port": runtime.bus.config.get("port"),
+            "tls": runtime.bus.config.get("tls"),
+            "site_id": runtime.site.site.id,
+        }
+
+    @app.post("/bus/publish")
+    def bus_publish() -> dict:
+        return {"published": runtime.publish_bus_snapshots()}
+
     @app.get("/health")
     def health() -> dict:
         return runtime.health()
