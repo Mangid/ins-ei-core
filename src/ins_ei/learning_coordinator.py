@@ -396,13 +396,14 @@ class LearningCoordinator:
         input_fit = {}
         orientation_fit = {}
         for orientation, meta in orientations.items():
-            orientation_samples = []
+            per_input_rows = {}
             orientation_energy_wh = 0.0
             orientation_capacity = float(meta.get("capacity_kwp") or 0.0)
             for component_id in meta.get("inputs") or []:
                 rows = self.historian.numeric_series(
                     self.site_id, component_id, "pv.generation_power", limit=50000
                 )
+                per_input_rows[component_id] = rows
                 values = [max(0.0, r["value"]) for r in rows]
                 energy_wh = 0.0
                 for a, b in zip(rows, rows[1:]):
@@ -419,14 +420,30 @@ class LearningCoordinator:
                     "energy_wh_observed": energy_wh,
                     "maximum_w_per_kwp": (max(values) / cap) if values and cap else None,
                 }
-                orientation_samples.extend(values)
                 orientation_energy_wh += energy_wh
+
+            # Synchronize inputs in one-minute buckets before summing an orientation.
+            buckets = {}
+            for component_id, rows in per_input_rows.items():
+                for row in rows:
+                    ts = datetime.fromisoformat(row["observed_at"])
+                    key = ts.replace(second=0, microsecond=0).isoformat()
+                    buckets.setdefault(key, {})[component_id] = max(0.0, row["value"])
+            required = set(per_input_rows)
+            summed = [
+                sum(values.values()) for values in buckets.values()
+                if required and required.issubset(values)
+            ]
             orientation_fit[orientation] = {
                 "inputs": list(meta.get("inputs") or []),
                 "capacity_kwp": orientation_capacity,
-                "samples": len(orientation_samples),
-                "maximum_input_sample_w": max(orientation_samples) if orientation_samples else None,
-                "mean_input_sample_w": (sum(orientation_samples) / len(orientation_samples)) if orientation_samples else None,
+                "synchronized_samples": len(summed),
+                "maximum_w": max(summed) if summed else None,
+                "mean_w": (sum(summed) / len(summed)) if summed else None,
+                "maximum_w_per_kwp": (
+                    max(summed) / orientation_capacity
+                    if summed and orientation_capacity > 0 else None
+                ),
                 "energy_wh_observed": orientation_energy_wh,
                 "energy_wh_per_kwp": (
                     orientation_energy_wh / orientation_capacity
