@@ -24,7 +24,7 @@ def test_good_point_becomes_stale_after_default_threshold():
 
 def test_fresh_point_remains_good():
     store = StateStore(default_stale_after_seconds=60)
-    store.ingest([point(10)])
+    store.ingest([point(5)])
     assert store.get("grid", "grid.export_power").quality == Quality.GOOD
 
 

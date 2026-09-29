@@ -34,9 +34,9 @@ def test_overlapping_slots_are_rejected():
     start = datetime(2026, 9, 27, 10, tzinfo=timezone.utc)
     store = TimeSeriesStore()
     with pytest.raises(ValueError, match="TIMESLOT_OVERLAP"):
-        store.replace("x", [
-            TimeSlot("x", start, start + timedelta(hours=2), 1, "kWh"),
-            TimeSlot("x", start + timedelta(hours=1), start + timedelta(hours=3), 2, "kWh"),
+        store.replace("forecast.pv_energy", [
+            TimeSlot("forecast.pv_energy", start, start + timedelta(hours=2), 1, "kWh"),
+            TimeSlot("forecast.pv_energy", start + timedelta(hours=1), start + timedelta(hours=3), 2, "kWh"),
         ])
 
 

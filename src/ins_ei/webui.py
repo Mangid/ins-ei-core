@@ -4,155 +4,68 @@ from fastapi.responses import HTMLResponse
 
 
 def index_html() -> HTMLResponse:
-    return HTMLResponse("""<!doctype html>
+    return HTMLResponse(r"""<!doctype html>
 <html lang="de">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>INS-EI</title>
+<title>INS-EI Core</title>
 <style>
-:root{font-family:Inter,system-ui,sans-serif;color-scheme:dark;background:#0b0e12;color:#eef2f6}
-body{margin:0;background:#0b0e12} header{padding:18px 24px;border-bottom:1px solid #252b34;display:flex;justify-content:space-between}
-main{padding:20px;display:grid;gap:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-.card{background:#131820;border:1px solid #252b34;border-radius:14px;padding:16px}.title{font-size:13px;color:#9ca8b7;text-transform:uppercase;letter-spacing:.08em}
-.big{font-size:26px;font-weight:700;margin-top:8px}.ok{color:#78d69c}.warn{color:#f0c66b}.bad{color:#ff8080}
-iframe{width:100%;height:620px;border:0;background:white;border-radius:10px;margin-top:12px}
-table{width:100%;border-collapse:collapse;margin-top:10px}td,th{text-align:left;padding:8px;border-bottom:1px solid #252b34;font-size:14px}
-.modelDetail{margin-top:10px;padding:12px;background:#0d1117;border:1px solid #252b34;border-radius:8px;font-size:13px;line-height:1.5}
-.modelDetail h4{margin:10px 0 5px}.modelDetail dl{display:grid;grid-template-columns:minmax(150px,1fr) 1fr;gap:4px 12px;margin:5px 0}.modelDetail dt{color:#9ca8b7}.modelDetail dd{margin:0;text-align:right}
-.modelRow{cursor:pointer}.modelRow:hover{background:#181e27}
-button{background:#252b34;color:#fff;border:1px solid #394250;border-radius:8px;padding:8px 12px;cursor:pointer}
+:root{font-family:Inter,system-ui,sans-serif;color-scheme:dark;background:#0a0d11;color:#eef2f6;--panel:#12171e;--line:#252c36;--muted:#8995a5;--ok:#78d69c;--warn:#f0c66b;--bad:#ff8080}
+*{box-sizing:border-box}body{margin:0;background:#0a0d11}header{height:64px;padding:0 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#0a0d11ee;backdrop-filter:blur(8px);z-index:3}
+.brand b{font-size:18px}.brand span,.muted{color:var(--muted)}button{background:#202731;color:#fff;border:1px solid #36404d;border-radius:9px;padding:8px 12px;cursor:pointer}
+.layout{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 64px)}nav{border-right:1px solid var(--line);padding:16px 10px}nav button{display:block;width:100%;text-align:left;margin:3px 0;background:transparent;border-color:transparent;color:#aab4c1}nav button.active{background:#1b222c;color:white;border-color:#2b3542}
+main{padding:22px;max-width:1500px}.page{display:none}.page.active{display:block}h1{font-size:25px;margin:0 0 6px}h2{font-size:17px;margin:0 0 12px}.lead{color:var(--muted);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;overflow:auto}.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.big{font-size:25px;font-weight:700;margin:8px 0}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted);font-weight:500}iframe{width:100%;height:650px;border:0;background:white;border-radius:10px}
+pre{white-space:pre-wrap;font-size:12px;background:#0d1117;border:1px solid var(--line);padding:12px;border-radius:9px}.pill{display:inline-block;padding:3px 7px;border:1px solid var(--line);border-radius:99px;font-size:11px;margin:2px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}nav{display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}nav button{width:auto;white-space:nowrap}main{padding:15px}}
 </style>
 </head>
 <body>
-<header><div><b>INS-EI</b> <span style="color:#7f8b99">V1 · v0.1.35 · Learning Platform</span></div><div><button onclick="location.href='config'">⚙ Konfiguration</button> <button onclick="refresh()">Aktualisieren</button></div></header>
+<header><div class="brand"><b>INS-EI Core</b> <span>· Client</span></div><div><span id="siteTop" class="muted"></span> <button onclick="location.href='config'">Konfiguration</button> <button onclick="refreshAll()">Aktualisieren</button></div></header>
+<div class="layout">
+<nav id="nav">
+<button class="active" data-page="overview">Übersicht</button>
+<button data-page="site">Anlage</button>
+<button data-page="plugins">Plugins</button>
+<button data-page="learning">Lernen</button>
+<button data-page="optimization">Optimierung</button>
+<button data-page="tariffs">Tarife</button>
+<button data-page="system">System</button>
+</nav>
 <main>
-<div class="grid">
- <div class="card"><div class="title">Core</div><div id="health" class="big">…</div><div id="site"></div></div>
- <div class="card"><div class="title">Safety</div><div id="safety" class="big">…</div><div id="safetyReason"></div></div>
- <div class="card"><div class="title">Learning</div><div id="models" class="big">…</div><div id="learningDetail">registrierte Modelle</div></div>
- <div class="card"><div class="title">Autonomie</div><div id="auto" class="big">…</div><div>Capabilities konfiguriert</div></div>
-</div>
-<div class="card"><div class="title">Zentrale · MQTT Bus</div><div id="busStatus" class="big">…</div><div id="busDetail"></div><div style="margin-top:10px"><button onclick="publishBus()">Snapshot jetzt senden</button> <span id="busResult"></span></div></div>
-<div class="card"><div class="title">Thermal Shadow · supervised</div>
- <div id="thermalShadow">Lade…</div>
- <div style="margin-top:10px"><button onclick="heatOnce(true)">WW einmal laden</button> <button onclick="heatOnce(false)">Heat Once beenden</button> <span id="heatOnceResult"></span></div>
- <small>Physische Befehle werden nur nach deinem Klick ausgeführt. Keine automatische Freigabe.</small>
-</div>
-<div class="card"><div class="title">Anlage · automatisch aus SiteGraph</div><iframe src="./site/schema.svg"></iframe></div>
-<div class="grid">
- <div class="card"><div class="title">Plugin Health</div><table id="plugins"><tbody></tbody></table></div>
- <div class="card"><div class="title">Learning Modelle</div><table id="learningModels"><tbody></tbody></table><div id="modelDetails"></div></div>
- <div class="card"><div class="title">Capability Autonomy</div><table id="autonomy"><tbody></tbody></table></div>
-</div>
-</main>
+<section id="overview" class="page active"><h1>Übersicht</h1><p class="lead">Aktueller Zustand der lokalen INS-EI-Instanz.</p>
+<div class="grid"><div class="card"><div class="label">Core</div><div id="health" class="big">…</div><div id="healthDetail"></div></div><div class="card"><div class="label">Safety</div><div id="safety" class="big">…</div><div id="safetyReason"></div></div><div class="card"><div class="label">Learning</div><div id="learningSummary" class="big">…</div><div id="learningDetail"></div></div><div class="card"><div class="label">Autonomie</div><div id="autonomyCount" class="big">…</div><div>Capabilities</div></div></div>
+<div class="card"><h2>Komponentenstatus</h2><table><thead><tr><th>Plugin / Instanz</th><th>Status</th><th>Alter</th></tr></thead><tbody id="healthPlugins"></tbody></table></div></section>
+
+<section id="site" class="page"><h1>Anlage</h1><p class="lead">SiteGraph und aktueller Anlagenzustand.</p><div class="card"><iframe src="./site/schema.svg"></iframe></div></section>
+
+<section id="plugins" class="page"><h1>Plugins</h1><p class="lead">Installierte Fähigkeiten und Geräteadapter.</p><div class="card"><table><thead><tr><th>Plugin</th><th>Version</th><th>Capabilities</th></tr></thead><tbody id="pluginRows"></tbody></table></div></section>
+
+<section id="learning" class="page"><h1>Lernen</h1><p class="lead">Was INS-EI über diese Anlage gelernt hat – getrennt nach Modellen.</p><div class="grid"><div class="card"><div class="label">Phase</div><div id="learnPhase" class="big">…</div></div><div class="card"><div class="label">Historie</div><div id="learnHours" class="big">…</div><div id="learnSamples"></div></div></div><div class="card"><table><thead><tr><th>Modell</th><th>Status</th><th>Phase</th><th>Begründung</th></tr></thead><tbody id="modelRows"></tbody></table></div></section>
+
+<section id="optimization" class="page"><h1>Optimierung</h1><p class="lead">Autonomie, Entscheidungen und Freigaben. Physische Aktionen bleiben Default-Deny.</p><div class="card"><h2>Capability Autonomy</h2><table><thead><tr><th>Capability</th><th>Modus</th><th>Ausführung</th><th>Grund</th></tr></thead><tbody id="autonomyRows"></tbody></table></div><div class="card" style="margin-top:14px"><h2>Strategy Snapshot</h2><button onclick="evaluateStrategy()">Jetzt auswerten</button><pre id="strategyResult">Noch nicht ausgewertet.</pre></div></section>
+
+<section id="tariffs" class="page"><h1>Tarife</h1><p class="lead">Aktiver Vertrag und Tarif-Simulation.</p><div class="card"><h2>Tarifmodell</h2><p class="muted">Die Core-API für aktive Bezugs-/Einspeisetarife und Szenarien wird als nächster Backend-Baustein angebunden. Die GUI hält dafür bewusst eine eigene Domäne frei.</p><div class="grid"><div><span class="pill">IST: fix / fix</span></div><div><span class="pill">Simulation: dynamisch / fix</span><span class="pill">fix / dynamisch</span><span class="pill">dynamisch / dynamisch</span></div></div></div></section>
+
+<section id="system" class="page"><h1>System</h1><p class="lead">Lokaler Core, Zentrale und Safety.</p><div class="grid"><div class="card"><div class="label">Zentrale / MQTT</div><div id="bus" class="big">…</div><div id="busDetail"></div><button onclick="publishBus()">Snapshot senden</button></div><div class="card"><div class="label">Safety</div><div id="systemSafety" class="big">…</div><p id="systemSafetyReason"></p></div></div></section>
+</main></div>
 <script>
-function api(path){
- const base=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/';
- return base+path.replace(/^\//,'');
+function api(path){const b=window.location.pathname.endsWith('/')?window.location.pathname:window.location.pathname+'/';return b+path.replace(/^\//,'')}
+async function j(path,opts){const r=await fetch(api(path),opts);const t=await r.text();if(!r.ok)throw new Error('HTTP '+r.status+' '+t.slice(0,120));return t?JSON.parse(t):{}}
+function statusClass(v){return ['OK','RUNNING','AUTONOMOUS','READY'].includes(String(v).toUpperCase())?'ok':['FAILED','DEGRADED','ERROR'].includes(String(v).toUpperCase())?'bad':'warn'}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.page).classList.add('active')})
+async function refreshAll(){
+ const [h,s,lm,ls,a,p,b]=await Promise.allSettled([j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/plugins'),j('/bus/status')]);
+ if(h.status==='fulfilled'){const x=h.value;health.textContent=x.status;health.className='big '+statusClass(x.status);healthDetail.textContent=x.site||'';siteTop.textContent=x.site||'';healthPlugins.innerHTML=Object.entries(x.plugins||{}).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+statusClass(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('')}
+ if(s.status==='fulfilled'){const x=s.value;const t=x.emergency_stop?'NOT-AUS AKTIV':'Freigegeben';safety.textContent=systemSafety.textContent=t;safety.className=systemSafety.className='big '+(x.emergency_stop?'bad':'ok');safetyReason.textContent=systemSafetyReason.textContent=x.reason||''}
+ if(ls.status==='fulfilled'){const x=ls.value;learningSummary.textContent=learnPhase.textContent=x.phase||'–';learnHours.textContent=(x.duration_hours||0).toFixed(1)+' h';learnSamples.textContent=(x.samples||0)+' Samples · '+(x.signals||0)+' Signale';learningDetail.textContent=learnSamples.textContent}
+ if(lm.status==='fulfilled'){modelRows.innerHTML=(lm.value.models||[]).map(x=>'<tr><td>'+x.id+'</td><td class="'+statusClass(x.status)+'">'+x.status+'</td><td>'+((x.metadata||{}).phase||'OBSERVATION')+'</td><td>'+((x.reason||'–'))+'</td></tr>').join('')}
+ if(a.status==='fulfilled'){const xs=a.value.capabilities||[];autonomyCount.textContent=xs.length;autonomyRows.innerHTML=xs.map(x=>'<tr><td>'+x.capability+'</td><td class="'+statusClass(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment&&x.assessment.allowed?'EXECUTE':'BLOCK')+'</td><td>'+(x.reason||'–')+'</td></tr>').join('')}
+ if(p.status==='fulfilled'){pluginRows.innerHTML=(p.value.plugins||[]).map(x=>'<tr><td>'+x.id+'</td><td>'+(x.version||'–')+'</td><td>'+((x.capabilities||[]).map(c=>'<span class="pill">'+(typeof c==='string'?c:(c.id||c.name||JSON.stringify(c)))+'</span>').join('')||'–')+'</td></tr>').join('')}
+ if(b.status==='fulfilled'){const x=b.value;bus.textContent=x.enabled?(x.connected?'VERBUNDEN':'GETRENNT'):'DEAKTIVIERT';bus.className='big '+(x.connected?'ok':x.enabled?'bad':'warn');busDetail.textContent=(x.host||'–')+':'+(x.port||'–')}
 }
-async function j(url){
- const r=await fetch(api(url));
- const text=await r.text();
- if(!r.ok) throw new Error(url+' HTTP '+r.status+' '+text.slice(0,160));
- try{return JSON.parse(text)}catch(e){throw new Error(url+' invalid JSON: '+text.slice(0,160))}
-}
-function cls(v){return ['OK','RUNNING','AUTONOMOUS'].includes(v)?'ok':['FAILED','DEGRADED'].includes(v)?'bad':'warn'}
-
-function fmt(v,d=2){return v==null?'–':(typeof v==='number'?v.toFixed(d):v)}
-function kv(obj, units={}){
- return '<dl>'+Object.entries(obj||{}).map(([k,v])=>'<dt>'+k.replaceAll('_',' ')+'</dt><dd>'+fmt(v)+(units[k]||'')+'</dd>').join('')+'</dl>'
-}
-function modelDetail(m){
- const md=m.metadata||{};
- const fit=m.id==='battery-baseline'?(md.battery_fit||md.fit||{}):
-           m.id==='electrical-baseline'?(md.electrical_fit||md.fit||{}):
-           (md.fit||md.generic_fit||{});
- let html='<div class="modelDetail"><b>'+m.id+'</b><br><span class="muted">'+(m.reason||'')+'</span>'+
-   '<dl><dt>Phase</dt><dd>'+(md.phase||'–')+'</dd><dt>Letzter Fit</dt><dd>'+(md.last_fit_at||'–')+'</dd><dt>Status</dt><dd>'+m.status+'</dd></dl>';
- if(m.id==='thermal-baseline'){
-   const ctx=md.thermal_context_fit||{};
-   html+='<h4>Puffer · Kontext</h4>';
-   Object.entries(ctx).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{mean_delta_c_per_h:' °C/h',median_delta_c_per_h:' °C/h',p025_delta_c_per_h:' °C/h',p975_delta_c_per_h:' °C/h',raw_min_delta_c_per_h:' °C/h',raw_max_delta_c_per_h:' °C/h',mean_outdoor_c:' °C'})});
-   if(md.dhw_fit){html+='<h4>Warmwasser</h4>';Object.entries(md.dhw_fit).forEach(([name,x])=>{if(x)html+='<b>'+name+'</b>'+kv(x,{mean_delta_c_per_h:' °C/h',median_delta_c_per_h:' °C/h'})})}
- } else if(m.id==='battery-baseline'){
-   html+='<h4>Batterie</h4>';
-   ['soc','voltage_dc','current_dc','charge_power','discharge_power'].forEach(k=>{if(fit[k])html+='<b>'+k.replaceAll('_',' ')+'</b>'+kv(fit[k])});
-   html+=kv({observed_charge_wh:fit.observed_charge_wh,observed_discharge_wh:fit.observed_discharge_wh,observed_soc_span_pct:fit.observed_soc_span_pct},{observed_charge_wh:' Wh',observed_discharge_wh:' Wh',observed_soc_span_pct:' %'});
- } else if(m.id==='electrical-baseline'){
-   html+='<h4>Elektrische Daten</h4>';
-   Object.entries(fit).forEach(([name,x])=>{html+='<b>'+name.replaceAll('_',' ')+'</b>'+kv(x)});
- } else if(m.id==='pv-orientation-baseline'){
-   const ori=md.orientation_fit||{}, inputs=md.input_fit||{};
-   html+='<h4>Ausrichtungen</h4>';
-   Object.entries(ori).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{capacity_kwp:' kWp',maximum_w:' W',mean_w:' W',maximum_w_per_kwp:' W/kWp',energy_wh_observed:' Wh',energy_wh_per_kwp:' Wh/kWp'})});
-   html+='<h4>PV-Eingänge</h4>';
-   Object.entries(inputs).forEach(([name,x])=>{html+='<b>'+name+'</b>'+kv(x,{maximum_w:' W',mean_w:' W',energy_wh_observed:' Wh',maximum_w_per_kwp:' W/kWp'})});
- }
- return html+'</div>';
-}
-function showModel(id){const m=window.learningModelData.find(x=>x.id===id);modelDetails.innerHTML=m?modelDetail(m):''}
-
-
-
-async function publishBus(){
- busResult.textContent=' sende…';
- try{const r=await fetch(api('/bus/publish'),{method:'POST'});const d=await r.json();
- busResult.className=r.ok?'ok':'bad';busResult.textContent=r.ok?' ✓ '+JSON.stringify(d.published):' ✗ Fehler';
- }catch(e){busResult.className='bad';busResult.textContent=' ✗ '+e}
-}
-
-async function heatOnce(enabled){
- const label=enabled?'WW-Einmalladung STARTEN':'WW-Einmalladung BEENDEN';
- if(!confirm(label+'? Dies sendet einen physischen Befehl an die ÖkoFEN-Regelung.')) return;
- heatOnceResult.textContent=' sende…';
- try{
-   const r=await fetch(api('/supervised/oekofen/heat-once?enabled='+enabled),{method:'POST'});
-   const text=await r.text(); let d={}; try{d=JSON.parse(text)}catch(_e){}
-   heatOnceResult.textContent=r.ok?' ✓ ausgeführt · '+(d.correlation_id||''):' ✗ '+(d.detail||text||('HTTP '+r.status));
-   heatOnceResult.className=r.ok?'ok':'bad';
- }catch(e){heatOnceResult.textContent=' ✗ '+e;heatOnceResult.className='bad'}
-}
-
-async function refresh(){
- const results=await Promise.allSettled([
-   j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/state'),j('/bus/status')
- ]);
- const [rh,rs,rl,rls,ra,rstate,rbus]=results;
- if(rbus.status==='fulfilled'){const b=rbus.value;busStatus.textContent=b.enabled?(b.connected?'VERBUNDEN':'GETRENNT'):'DEAKTIVIERT';busStatus.className='big '+(b.connected?'ok':b.enabled?'bad':'warn');busDetail.textContent=(b.host||'–')+':'+(b.port||'–')+' · '+b.site_id}
- else {busStatus.textContent='API FEHLER';busStatus.className='big bad'}
- if(rh.status==='fulfilled'){
-   const h=rh.value; health.textContent=h.status; health.className='big '+cls(h.status); site.textContent=h.site;
-   plugins.innerHTML=Object.entries(h.plugins).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+cls(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('');
- } else {health.textContent='API FEHLER';health.className='big bad';site.textContent=rh.reason.message}
- if(rs.status==='fulfilled'){
-   const s=rs.value;safety.textContent=s.emergency_stop?'NOT-AUS AKTIV':'Freigegeben';safety.className='big '+(s.emergency_stop?'bad':'ok');safetyReason.textContent=s.reason||'';
- } else {safety.textContent='API FEHLER';safety.className='big bad';safetyReason.textContent=rs.reason.message}
- if(rl.status==='fulfilled'){
-   const l=rl.value;window.learningModelData=l.models;
-   learningModels.innerHTML=l.models.map(x=>'<tr class="modelRow" data-model-id="'+x.id+'"><td>'+x.id+'</td><td class="'+cls(x.status)+'">'+x.status+'</td><td>'+((x.metadata&&x.metadata.phase)||'OBSERVATION')+'</td></tr>').join('');
-   learningModels.querySelectorAll('[data-model-id]').forEach(row=>row.addEventListener('click',()=>showModel(row.dataset.modelId)));
-   models.textContent=l.models.length;
- } else {models.textContent='API FEHLER';models.className='big bad';learningDetail.textContent=rl.reason.message}
- if(rls.status==='fulfilled'){
-   const ls=rls.value;
-   if(rl.status==='fulfilled') models.textContent=rl.value.models.length+' · '+ls.phase;
-   learningDetail.textContent=ls.duration_hours.toFixed(1)+' h · '+ls.samples+' Samples · '+ls.signals+' Signale';
- } else {learningDetail.textContent=rls.reason.message}
- if(rstate.status==='fulfilled'){
-   const pts=rstate.value.points||[];
-   const dhwDecision=pts.find(x=>x.component_id==='dhw'&&x.point==='decision.dhw');
-   const genDecision=pts.find(x=>x.component_id==='pellet_boiler'&&x.point==='decision.heat_generator');
-   const heatOnceState=pts.find(x=>x.component_id==='dhw'&&x.point==='state.one_time_charge');
-   const peMode=pts.find(x=>x.component_id==='pellet_boiler'&&x.point==='state.operating_mode');
-   thermalShadow.innerHTML='<b>DHW:</b> '+(dhwDecision?dhwDecision.value:'–')+
-     ' &nbsp; <b>Heat Once:</b> '+(heatOnceState?heatOnceState.value:'–')+
-     '<br><b>Wärmeerzeuger:</b> '+(genDecision?genDecision.value:'–')+
-     ' &nbsp; <b>pe_mode:</b> '+(peMode?peMode.value:'–');
- }
- if(ra.status==='fulfilled'){
-   const a=ra.value;auto.textContent=a.capabilities.length;
-   autonomy.innerHTML=a.capabilities.map(x=>'<tr><td>'+x.capability+'</td><td class="'+cls(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment.allowed?'EXECUTE':'BLOCK')+'</td></tr>').join('');
- } else {auto.textContent='API FEHLER';auto.className='big bad';autonomy.innerHTML='<tr><td>'+ra.reason.message+'</td></tr>'}
-}
-refresh(); setInterval(refresh,10000)
+async function evaluateStrategy(){strategyResult.textContent='Auswertung…';try{strategyResult.textContent=JSON.stringify(await j('/strategy/evaluate',{method:'POST'}),null,2)}catch(e){strategyResult.textContent=String(e)}}
+async function publishBus(){try{await j('/bus/publish',{method:'POST'});refreshAll()}catch(e){alert(e)}}
+refreshAll();setInterval(refreshAll,10000)
 </script></body></html>""")

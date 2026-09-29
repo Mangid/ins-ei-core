@@ -24,6 +24,10 @@ class ThermalShadow:
         source = Source(plugin_instance="thermal-shadow")
         result: list[Point] = []
 
+        has_dhw = "dhw" in self.graph.components
+        has_generator = "pellet_boiler" in self.graph.components
+        has_buffer = "buffer" in self.graph.components
+
         dhw = self.state.get("dhw", "thermal.temperature", now)
         minimum = self._constraint("dhw_min_temperature")
         comfort = self._constraint("dhw_comfort_temperature")
@@ -35,10 +39,11 @@ class ThermalShadow:
             dhw_action = "HOLD_COMFORT_OK"
         else:
             dhw_action = "HOLD_FORECAST_PENDING"
-        result.append(Point(
-            component_id="dhw", point="decision.dhw", value=dhw_action, unit=None,
-            quality=Quality.GOOD, observed_at=now, source=source,
-        ))
+        if has_dhw:
+            result.append(Point(
+                component_id="dhw", point="decision.dhw", value=dhw_action, unit=None,
+                quality=Quality.GOOD, observed_at=now, source=source,
+            ))
 
         # V1 intentionally does not invent a buffer reserve threshold.
         buffer_min = self._constraint("buffer_min_temperature")
@@ -51,9 +56,10 @@ class ThermalShadow:
             generator_action = "HEAT_GENERATOR_ENABLE"
         else:
             generator_action = "HOLD"
-        result.append(Point(
-            component_id="pellet_boiler", point="decision.heat_generator",
-            value=generator_action, unit=None, quality=Quality.GOOD,
-            observed_at=now, source=source,
-        ))
+        if has_generator and has_buffer:
+            result.append(Point(
+                component_id="pellet_boiler", point="decision.heat_generator",
+                value=generator_action, unit=None, quality=Quality.GOOD,
+                observed_at=now, source=source,
+            ))
         return result

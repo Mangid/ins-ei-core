@@ -1,6 +1,7 @@
 import pytest
 
 from ins_ei.command_dispatcher import CommandDispatcher
+from ins_ei.autonomy import AutonomyMode, CapabilityAutonomy
 from ins_ei.config import SiteConfig
 from ins_ei.runtime import Runtime
 from ins_ei.strategy import Intent
@@ -19,6 +20,12 @@ def test_dispatcher_rejects_command_not_declared_by_plugin():
     })
     runtime = Runtime(site)
     runtime.configure()
+    runtime.autonomy.configure(CapabilityAutonomy(
+        capability="thermal_optimization",
+        mode=AutonomyMode.AUTONOMOUS,
+        required_models=[],
+        physical_write_allowed=True,
+    ))
     dispatcher = CommandDispatcher(runtime)
 
     with pytest.raises(ValueError, match="COMMAND_NOT_DECLARED"):
