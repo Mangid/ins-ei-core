@@ -71,6 +71,8 @@ class Runtime:
         self.plugins: dict[str, ManagedPlugin] = {}
         self.instance_configs = {cfg.id: cfg for cfg in site.plugin_instances}
         self.instance_plugin_ids = {cfg.id: cfg.plugin for cfg in site.plugin_instances}
+        self._observed_control_state: dict[tuple[str, str], object] = {}
+        self._expected_control_state: dict[tuple[str, str], tuple[object, datetime]] = {}
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
@@ -120,6 +122,7 @@ class Runtime:
         managed.last_read_attempt_at = now
         try:
             points = managed.plugin.read_points()
+            self._detect_operator_changes(points)
             self.state.ingest(points)
             self.historian.record_points(self.site.site.id, points, self.context_version)
             managed.last_successful_read_at = datetime.now().astimezone()
@@ -157,6 +160,45 @@ class Runtime:
             self.metrics.inc("collect_failed_total")
             self.metrics.set(f"plugin.{instance_id}.last_read_ok", 0)
             self.audit.record("plugin.collect_failed", instance=instance_id, error=error)
+
+
+    def _detect_operator_changes(self, points) -> None:
+        watched = {"state.operating_mode", "state.one_time_charge"}
+        now = datetime.now().astimezone()
+        for point in points:
+            if point.point not in watched:
+                continue
+            key = (point.component_id, point.point)
+            previous = self._observed_control_state.get(key)
+            current = point.value
+            self._observed_control_state[key] = current
+            if previous is None or previous == current:
+                continue
+            expected = self._expected_control_state.get(key)
+            if expected is not None:
+                expected_value, until = expected
+                if now <= until and str(expected_value) == str(current):
+                    self.historian.record_event(
+                        self.site.site.id, "command.state_confirmed",
+                        {"component": point.component_id, "point": point.point,
+                         "previous": previous, "value": current},
+                        context_version=self.context_version,
+                    )
+                    self._expected_control_state.pop(key, None)
+                    continue
+                if now > until:
+                    self._expected_control_state.pop(key, None)
+            self.historian.record_event(
+                self.site.site.id, "operator.state_changed",
+                {"component": point.component_id, "point": point.point,
+                 "previous": previous, "value": current,
+                 "plugin_instance": point.source.plugin_instance},
+                context_version=self.context_version,
+            )
+            log.info(
+                "operator state change | component=%s point=%s previous=%s value=%s",
+                point.component_id, point.point, previous, current,
+            )
 
     def collect_once(self) -> None:
         for instance_id in self.plugins:
