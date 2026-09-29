@@ -205,11 +205,10 @@ class LearningCoordinator:
                 model.metadata["phase"] = "PASSIVE_BASELINE"
             model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
             if model.id == "thermal-baseline":
-                model.metadata["fit"] = {k: v for k, v in fitted.items() if k in {"buffer_temperature", "dhw_temperature"}}
+                model.metadata["generic_fit"] = {k: v for k, v in fitted.items() if k in {"buffer_temperature", "dhw_temperature"}}
             elif model.id == "battery-baseline":
-                model.metadata["fit"] = {k: v for k, v in fitted.items() if k == "battery_soc"}
-            else:
-                model.metadata["fit"] = fitted
+                model.metadata["generic_fit"] = {k: v for k, v in fitted.items() if k == "battery_soc"}
+            # Specialized electrical/PV models own their own result namespaces.
             model.reason = "Passive baseline fitted from GOOD historical observations; no control authority."
             self.historian.save_model(model)
 
@@ -469,7 +468,8 @@ class LearningCoordinator:
         except ValueError:
             return {"fitted": False, "reason": "electrical-baseline model missing"}
         model.metadata["phase"] = "ELECTRICAL_BASELINE"
-        model.metadata["fit"] = fit
+        model.metadata["electrical_fit"] = fit
+        model.metadata.pop("fit", None)
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
         model.reason = "Passive electrical/provider baseline; no control authority."
         self.historian.save_model(model)
@@ -522,7 +522,8 @@ class LearningCoordinator:
         except ValueError:
             return {"fitted": False, "reason": "battery-baseline model missing"}
         model.metadata["phase"] = "BATTERY_BEHAVIOR_BASELINE"
-        model.metadata["fit"] = fit
+        model.metadata["battery_fit"] = fit
+        model.metadata.pop("fit", None)
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
         model.reason = "Passive battery behavior baseline; capacity/efficiency not inferred until sufficient SOC excursion exists."
         self.historian.save_model(model)
