@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .config import SiteConfig
 from .models import PluginHealth, PluginStatus
@@ -229,6 +229,49 @@ class Runtime:
                 managed.status = PluginStatus.FAILED
                 managed.error = str(exc)
                 log.exception("plugin stop failed | instance=%s", instance_id)
+
+
+    def execute_supervised(self, instance_id: str, command: str, parameters: dict) -> dict:
+        """Execute one explicitly user-approved physical command."""
+        if self.safety.state().emergency_stop:
+            raise RuntimeError("SAFETY_EMERGENCY_STOP")
+        if instance_id not in self.plugins:
+            raise ValueError(f"PLUGIN_INSTANCE_UNKNOWN:{instance_id}")
+        plugin_id = self.instance_plugin_ids[instance_id]
+        manifest = self.catalog.manifest(plugin_id)
+        if command not in (manifest.commands or []):
+            raise ValueError(f"PLUGIN_COMMAND_NOT_DECLARED:{plugin_id}:{command}")
+
+        correlation_id = self.historian.new_correlation_id()
+        managed = self.plugins[instance_id]
+        try:
+            result = managed.plugin.execute(command, parameters)
+            self.historian.record_command(
+                self.site.site.id, correlation_id, instance_id, command,
+                parameters, "EXECUTED_SUPERVISED", plugin_instance=instance_id,
+                result=result, context_version=self.context_version,
+            )
+            if command == "dhw.request_once":
+                self._expected_control_state[("dhw", "state.one_time_charge")] = (
+                    "true" if bool(parameters.get("enabled", True)) else "false",
+                    datetime.now().astimezone() + timedelta(seconds=90),
+                )
+            self.audit.record(
+                "command.executed_supervised", instance=instance_id,
+                command=command, parameters=parameters, correlation_id=correlation_id,
+            )
+            return {"executed": True, "correlation_id": correlation_id, "result": result}
+        except Exception as exc:
+            self.historian.record_command(
+                self.site.site.id, correlation_id, instance_id, command,
+                parameters, "FAILED", plugin_instance=instance_id,
+                error=str(exc), context_version=self.context_version,
+            )
+            self.audit.record(
+                "command.failed_supervised", instance=instance_id,
+                command=command, error=str(exc), correlation_id=correlation_id,
+            )
+            raise
 
     def evaluate_strategy(self):
         self.metrics.inc("strategy_evaluation_total")
