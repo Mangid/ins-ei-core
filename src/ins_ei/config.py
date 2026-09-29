@@ -59,6 +59,14 @@ class CommissioningConfig(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CentralConfig(BaseModel):
+    enabled: bool = False
+    host: str = "mqtt.ins-enertech.net"
+    port: int = 8883
+    tls: bool = True
+    username: str | None = None
+
+
 class SiteConfig(BaseModel):
     api_version: str
     site: SiteInfo
@@ -68,6 +76,7 @@ class SiteConfig(BaseModel):
     connections: list[dict[str, Any]] = Field(default_factory=list)
     constraints: list[dict[str, Any]] = Field(default_factory=list)
     apps: dict[str, Any] = Field(default_factory=dict)
+    central: CentralConfig = Field(default_factory=CentralConfig)
     strategy: dict[str, Any] = Field(default_factory=dict)
     site_rules: list[dict[str, Any]] = Field(default_factory=list)
     commissioning: CommissioningConfig = Field(default_factory=CommissioningConfig)
