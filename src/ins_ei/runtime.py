@@ -179,7 +179,14 @@ class Runtime:
             expected = self._expected_control_state.get(key)
             if expected is not None:
                 expected_value, until = expected
-                if now <= until and str(expected_value) == str(current):
+                def normalized(value):
+                    text = str(value).strip().lower()
+                    if text in {"true", "1", "on", "ein", "yes"}:
+                        return True
+                    if text in {"false", "0", "off", "aus", "no"}:
+                        return False
+                    return text
+                if now <= until and normalized(expected_value) == normalized(current):
                     self.historian.record_event(
                         self.site.site.id, "command.state_confirmed",
                         {"component": point.component_id, "point": point.point,
@@ -253,7 +260,7 @@ class Runtime:
             )
             if command == "dhw.request_once":
                 self._expected_control_state[("dhw", "state.one_time_charge")] = (
-                    "true" if bool(parameters.get("enabled", True)) else "false",
+                    bool(parameters.get("enabled", True)),
                     datetime.now().astimezone() + timedelta(seconds=90),
                 )
             self.audit.record(
