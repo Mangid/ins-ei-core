@@ -1,6 +1,6 @@
 import pytest
 
-from ins_ei.config import SiteConfig
+from ins_ei.config import ComponentConfig, SiteConfig
 from ins_ei.site_graph import SiteGraph
 from ins_ei.strategy_loader import build_strategy_engine
 
@@ -38,7 +38,7 @@ def test_strategy_is_built_from_site_config():
 
 def test_strategy_rejects_unconnected_heat_source():
     site = site_with_strategy()
-    site.components.append({"id": "other", "kind": "HEAT_GENERATOR", "provider": "io"})
+    site.components.append(ComponentConfig(id="other", kind="HEAT_GENERATOR", provider="io"))
     site.strategy["modules"][0]["config"]["heat_source"] = "other"
     with pytest.raises(ValueError, match="STRATEGY_HEAT_SOURCE_NOT_CONNECTED"):
         build_strategy_engine(site, SiteGraph(site))
