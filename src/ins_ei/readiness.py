@@ -20,7 +20,7 @@ class ReadinessPolicy:
     max_unobservable_fraction: float = 0.20
     max_mae: float | None = None
     max_rmse: float | None = None
-    min_context_buckets: int = 1
+    min_context_buckets: int = 0
 
 
 @dataclass(frozen=True)
