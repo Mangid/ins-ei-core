@@ -287,9 +287,9 @@ function proposeRelations(){{
     add('pellet_boiler','buffer','HEATS'); add('pellet_boiler','dhw','HEATS'); add('power_to_heat','buffer','HEATS');
     add('buffer','hk1','SUPPLIES'); add('buffer','hk2','SUPPLIES'); add('grid','power_to_heat','SUPPLIES');
   }}
-  add('pv_inverter_1','pv','SUPPLIES'); add('pv_inverter_2','pv','SUPPLIES');
+  [...m.values()].filter(x=>x.kind==='PV_INVERTER').forEach(x=>add(x.id,'pv','SUPPLIES'));
   add('pv','battery','CHARGES'); add('pv','grid','CONNECTED_TO'); add('battery','grid','CONNECTED_TO');
-  add('grid_victron','grid','CONNECTED_TO');
+  add('grid_victron','grid','CONNECTED_TO'); add('grid_huawei','grid','CONNECTED_TO');
   renderTopology(); renderLimits(); updateStart();
 }}
 function relationGroup(r){{

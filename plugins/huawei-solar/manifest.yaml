@@ -1,0 +1,16 @@
+api_version: ins-ei.plugin/v1
+id: huawei-solar
+name: Huawei Solar
+version: 0.1.0
+kind: device
+entrypoint: ins_ei.plugins.huawei_solar:HuaweiSolarPlugin
+capabilities: [pv, inverter, battery, grid_meter, discovery, electrical_telemetry]
+config_schema:
+  fields:
+    - {id: host, label: Huawei IP / Host, type: text, required: true}
+    - {id: port, label: Modbus TCP Port, type: number, default: 502}
+    - {id: inverter_unit_ids, label: Inverter Unit IDs (z. B. 1,2), type: text, default: "1"}
+    - {id: primary_unit_id, label: Primäre Unit ID für Batterie/Zähler, type: number, default: 1}
+    - {id: timeout, label: Timeout Sekunden, type: number, default: 5}
+permissions: {network: true, filesystem: false}
+notes: {transport: modbus_tcp, control: read_only_shadow_v1, model_strategy: discovery_profiles}
