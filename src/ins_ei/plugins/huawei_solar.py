@@ -117,7 +117,6 @@ class HuaweiSolarPlugin(Plugin):
             raw, diagnostics = _run(self._collect())
             now = datetime.now().astimezone()
             source = Source(plugin_instance=self.instance_id)
-            points = [self._point(*x, now, source) for x in []]
             points = [
                 self._point(component, name, value, unit, now, source)
                 for component, name, value, unit in raw
