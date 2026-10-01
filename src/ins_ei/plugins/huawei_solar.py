@@ -96,7 +96,23 @@ class HuaweiSolarPlugin(Plugin):
                 ]
             values.append((f"{prefix}_pv", "pv.generation_power", total_pv, "W"))
 
-            # Meter/storage are optional per Huawei host. This matters for plants with\n            # multiple independently addressed inverters such as Kaufmann.\n            if _as_bool(self.config.get("include_meter"), True):\n                meter_power = float((await device.client.get(rn.POWER_METER_ACTIVE_POWER)).value)\n                values += [\n                    (f"{prefix}_grid", "grid.import_power", max(0.0, meter_power), "W"),\n                    (f"{prefix}_grid", "grid.export_power", max(0.0, -meter_power), "W"),\n                ]\n\n            if _as_bool(self.config.get("include_battery"), True):\n                soc = float((await device.client.get(rn.STORAGE_STATE_OF_CAPACITY)).value)\n                battery_power = float((await device.client.get(rn.STORAGE_CHARGE_DISCHARGE_POWER)).value)\n                values += [\n                    (f"{prefix}_battery", "battery.soc", soc, "%"),\n                    (f"{prefix}_battery", "battery.charge_power", max(0.0, battery_power), "W"),\n                    (f"{prefix}_battery", "battery.discharge_power", max(0.0, -battery_power), "W"),\n                ]
+            # Meter/storage are optional per Huawei host. This matters for plants with
+            # multiple independently addressed inverters such as Kaufmann.
+            if _as_bool(self.config.get("include_meter"), True):
+                meter_power = float((await device.client.get(rn.POWER_METER_ACTIVE_POWER)).value)
+                values += [
+                    (f"{prefix}_grid", "grid.import_power", max(0.0, meter_power), "W"),
+                    (f"{prefix}_grid", "grid.export_power", max(0.0, -meter_power), "W"),
+                ]
+
+            if _as_bool(self.config.get("include_battery"), True):
+                soc = float((await device.client.get(rn.STORAGE_STATE_OF_CAPACITY)).value)
+                battery_power = float((await device.client.get(rn.STORAGE_CHARGE_DISCHARGE_POWER)).value)
+                values += [
+                    (f"{prefix}_battery", "battery.soc", soc, "%"),
+                    (f"{prefix}_battery", "battery.charge_power", max(0.0, battery_power), "W"),
+                    (f"{prefix}_battery", "battery.discharge_power", max(0.0, -battery_power), "W"),
+                ]
             diagnostics = {
                 "transport": "huawei-solar-lib/3.0.7",
                 "host": host, "port": port, "primary_unit_id": primary,
