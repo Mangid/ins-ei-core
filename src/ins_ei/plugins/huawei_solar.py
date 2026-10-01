@@ -92,7 +92,7 @@ class HuaweiSolarPlugin(Plugin):
                 component = f"{prefix}_inverter_{index}"
                 values += [
                     (component, "pv.generation_power", max(0.0, input_power), "W"),
-                    (component, "power.output", active_power, "W"),
+                    (component, "power.electrical", active_power, "W"),
                 ]
             values.append((f"{prefix}_pv", "pv.generation_power", total_pv, "W"))
 
