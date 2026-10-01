@@ -29,6 +29,7 @@ ALLOWED_COMPONENT_KINDS = {
     "POWER_TO_HEAT",
     "HEAT_METER",
     "ELECTRIC_METER",
+    "GRID_METER",
     "PUMP",
     "VALVE",
     "MARKET",
