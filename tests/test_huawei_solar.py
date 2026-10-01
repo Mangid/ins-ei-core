@@ -39,16 +39,31 @@ def test_huawei_multi_inverter_aggregation_and_luna(monkeypatch):
     monkeypatch.setattr(mod,"create_device_instance",primary)
     monkeypatch.setattr(mod,"create_sub_device_instance",sub)
 
-    p=HuaweiSolarPlugin("huawei_main",{"host":"x","inverter_unit_ids":"1,2","primary_unit_id":1})
+    p=HuaweiSolarPlugin("huawei_main",{"host":"x","inverter_unit_ids":"1,2","primary_unit_id":1,"component_prefix":"huawei_a"})
     p.running=True
     points=p.read_points()
     values={(x.component_id,x.point):x.value for x in points}
-    assert values[("pv","pv.generation_power")]==9500
-    assert values[("grid_huawei","grid.import_power")]==1000
-    assert values[("grid_huawei","grid.export_power")]==0
-    assert values[("battery","battery.soc")]==55
-    assert values[("battery","battery.charge_power")]==1200
+    assert values[("huawei_a_pv","pv.generation_power")]==9500
+    assert values[("huawei_a_grid","grid.import_power")]==1000
+    assert values[("huawei_a_grid","grid.export_power")]==0
+    assert values[("huawei_a_battery","battery.soc")]==55
+    assert values[("huawei_a_battery","battery.charge_power")]==1200
     components={x["id"]:x["kind"] for x in p.discover_components(points)}
-    assert components["huawei_inverter_1"]=="PV_INVERTER"
-    assert components["huawei_inverter_2"]=="PV_INVERTER"
-    assert components["battery"]=="BATTERY"
+    assert components["huawei_a_inverter_1"]=="PV_INVERTER"
+    assert components["huawei_a_inverter_2"]=="PV_INVERTER"
+    assert components["huawei_a_battery"]=="BATTERY"
+
+
+def test_secondary_host_can_skip_meter_and_battery(monkeypatch):
+    client=FakeClient()
+    monkeypatch.setattr(mod,"create_tcp_client",lambda **kwargs: client)
+    async def primary(c): return FakeDevice(c,"SUN2000-10KTL-M1")
+    monkeypatch.setattr(mod,"create_device_instance",primary)
+    p=HuaweiSolarPlugin("huawei_wr2",{"host":"x","inverter_unit_ids":"2","primary_unit_id":2,"component_prefix":"huawei_wr2","include_meter":"false","include_battery":"false"})
+    p.running=True
+    points=p.read_points()
+    ids={x.component_id for x in points}
+    assert "huawei_wr2_pv" in ids
+    assert "huawei_wr2_inverter_1" in ids
+    assert "huawei_wr2_grid" not in ids
+    assert "huawei_wr2_battery" not in ids

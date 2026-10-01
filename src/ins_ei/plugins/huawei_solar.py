@@ -18,6 +18,14 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+def _as_bool(value: Any, default: bool = True) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 class HuaweiSolarPlugin(Plugin):
     """Huawei SUN2000/LUNA/Smart Meter adapter using huawei-solar-lib."""
 
@@ -72,6 +80,7 @@ class HuaweiSolarPlugin(Plugin):
                     devices[unit] = await create_sub_device_instance(device, unit)
 
             values: list[tuple[str, str, float, str]] = []
+            prefix = str(self.config.get("component_prefix") or self.instance_id)
             total_pv = 0.0
             models = {}
             for index, unit in enumerate(units, start=1):
@@ -80,27 +89,30 @@ class HuaweiSolarPlugin(Plugin):
                 input_power = float((await d.client.get(rn.INPUT_POWER)).value)
                 active_power = float((await d.client.get(rn.ACTIVE_POWER)).value)
                 total_pv += max(0.0, input_power)
-                component = f"huawei_inverter_{index}"
+                component = f"{prefix}_inverter_{index}"
                 values += [
                     (component, "pv.generation_power", max(0.0, input_power), "W"),
                     (component, "power.output", active_power, "W"),
                 ]
-            values.append(("pv", "pv.generation_power", total_pv, "W"))
+            values.append((f"{prefix}_pv", "pv.generation_power", total_pv, "W"))
 
-            # Meter and LUNA are attached to the primary inverter in the plant model.
-            meter_power = float((await device.client.get(rn.POWER_METER_ACTIVE_POWER)).value)
-            values += [
-                ("grid_huawei", "grid.import_power", max(0.0, meter_power), "W"),
-                ("grid_huawei", "grid.export_power", max(0.0, -meter_power), "W"),
-            ]
+            # Meter/storage are optional per Huawei host. This matters for plants with
+            # multiple independently addressed inverters such as Kaufmann.
+            if _as_bool(self.config.get("include_meter"), True):
+                meter_power = float((await device.client.get(rn.POWER_METER_ACTIVE_POWER)).value)
+                values += [
+                    (f"{prefix}_grid", "grid.import_power", max(0.0, meter_power), "W"),
+                    (f"{prefix}_grid", "grid.export_power", max(0.0, -meter_power), "W"),
+                ]
 
-            soc = float((await device.client.get(rn.STORAGE_STATE_OF_CAPACITY)).value)
-            battery_power = float((await device.client.get(rn.STORAGE_CHARGE_DISCHARGE_POWER)).value)
-            values += [
-                ("battery", "battery.soc", soc, "%"),
-                ("battery", "battery.charge_power", max(0.0, battery_power), "W"),
-                ("battery", "battery.discharge_power", max(0.0, -battery_power), "W"),
-            ]
+            if _as_bool(self.config.get("include_battery"), True):
+                soc = float((await device.client.get(rn.STORAGE_STATE_OF_CAPACITY)).value)
+                battery_power = float((await device.client.get(rn.STORAGE_CHARGE_DISCHARGE_POWER)).value)
+                values += [
+                    (f"{prefix}_battery", "battery.soc", soc, "%"),
+                    (f"{prefix}_battery", "battery.charge_power", max(0.0, battery_power), "W"),
+                    (f"{prefix}_battery", "battery.discharge_power", max(0.0, -battery_power), "W"),
+                ]
             diagnostics = {
                 "transport": "huawei-solar-lib/3.0.7",
                 "host": host, "port": port, "primary_unit_id": primary,
@@ -132,10 +144,11 @@ class HuaweiSolarPlugin(Plugin):
     def discover_components(self, points: list[Point]) -> list[dict[str, Any]]:
         present = {p.component_id for p in points}
         result = []
-        for component_id, kind in [("pv", "PV"), ("battery", "BATTERY"), ("grid_huawei", "GRID_METER")]:
+        prefix = str(self.config.get("component_prefix") or self.instance_id)
+        for component_id, kind in [(f"{prefix}_pv", "PV"), (f"{prefix}_battery", "BATTERY"), (f"{prefix}_grid", "GRID_METER")]:
             if component_id in present:
                 result.append({"id": component_id, "kind": kind, "ready": True})
-        for component_id in sorted(x for x in present if x.startswith("huawei_inverter_")):
+        for component_id in sorted(x for x in present if x.startswith(f"{prefix}_inverter_")):
             result.append({"id": component_id, "kind": "PV_INVERTER", "ready": True})
         return result
 
