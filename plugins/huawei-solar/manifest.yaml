@@ -10,7 +10,10 @@ config_schema:
     - {id: host, label: Huawei IP / Host, type: text, required: true}
     - {id: port, label: Modbus TCP Port, type: number, default: 502}
     - {id: inverter_unit_ids, label: Inverter Unit IDs (z. B. 1,2), type: text, default: "1"}
-    - {id: primary_unit_id, label: Primäre Unit ID für Batterie/Zähler, type: number, default: 1}
+    - {id: primary_unit_id, label: Primäre Unit ID, type: number, default: 1}
+    - {id: component_prefix, label: Komponenten-Prefix, type: text, required: true}
+    - {id: include_meter, label: Huawei Smartmeter an diesem Host (true/false), type: text, default: "true"}
+    - {id: include_battery, label: Huawei Batterie an diesem Host (true/false), type: text, default: "true"}
     - {id: timeout, label: Timeout Sekunden, type: number, default: 5}
 permissions: {network: true, filesystem: false}
 notes: {transport: modbus_tcp, control: read_only_shadow_v1, model_strategy: discovery_profiles}
