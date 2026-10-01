@@ -224,14 +224,16 @@ function addPluginInstance(pluginId){{
 }}
 function removePluginInstance(button){{button.closest('.pluginInstance').remove();}}
 async function testPluginInstance(button){{
-  const card=button.closest('.pluginInstance'), id=normalizeInstanceId(card), pluginId=card.dataset.plugin;
+  const card=button.closest('.pluginInstance'), previousId=card.dataset.lastTestedInstanceId||card.dataset.instanceId, id=normalizeInstanceId(card), pluginId=card.dataset.plugin;
   const el=card.querySelector('.instanceResult'); el.textContent=' teste…';
   try{{
     const r=await fetch(api('setup/test-plugin'),{{method:'POST',headers:{{'content-type':'application/json'}},body:JSON.stringify({{plugin_id:pluginId,instance_id:id,config:instanceConfig(card)}})}});
     const d=await r.json(); el.className=r.ok?'instanceResult ok':'instanceResult bad';
     el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
     if(r.ok){{
-      discoveredComponents=discoveredComponents.filter(x=>x.provider!==id);
+      discoveredComponents=discoveredComponents.filter(x=>x.provider!==id&&x.provider!==previousId);
+      if(previousId&&previousId!==id){relations=relations.filter(r=>!discoveredComponents.every(x=>x.id!==r.from)&&!discoveredComponents.every(x=>x.id!==r.to));}
+      card.dataset.lastTestedInstanceId=id;
       (d.components||[]).forEach(x=>{{
         const old=discoveredComponents.find(y=>y.id===x.id);
         discoveredComponents.push({{...x,properties:(old&&old.properties)||x.properties||{{}},plugin:pluginId,provider:id}});
