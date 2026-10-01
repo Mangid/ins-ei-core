@@ -232,7 +232,7 @@ async function testPluginInstance(button){{
     el.textContent=r.ok?' ✓ '+d.points.length+' Punkte':' ✗ '+(d.detail||'Fehler');
     if(r.ok){{
       discoveredComponents=discoveredComponents.filter(x=>x.provider!==id&&x.provider!==previousId);
-      if(previousId&&previousId!==id){relations=relations.filter(r=>!discoveredComponents.every(x=>x.id!==r.from)&&!discoveredComponents.every(x=>x.id!==r.to));}
+      if(previousId&&previousId!==id){{relations=relations.filter(r=>!discoveredComponents.every(x=>x.id!==r.from)&&!discoveredComponents.every(x=>x.id!==r.to));}}
       card.dataset.lastTestedInstanceId=id;
       (d.components||[]).forEach(x=>{{
         const old=discoveredComponents.find(y=>y.id===x.id);
