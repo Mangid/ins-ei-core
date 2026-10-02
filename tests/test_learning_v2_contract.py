@@ -4,7 +4,9 @@ from pathlib import Path
 def test_specialized_learning_namespaces_are_isolated():
     src = Path("src/ins_ei/learning_coordinator.py").read_text()
     assert 'model.metadata["electrical_fit"] = fit' in src
-    assert 'model.metadata["battery_fit"] = fit' in src
+    assert 'model.metadata["battery_fit"] = per_battery' in src
+    assert 'if kind != "BATTERY"' in src
+    assert 'for component, kind in self.component_kinds.items()' in src
     assert 'model.metadata["generic_fit"]' in src
 
 
