@@ -466,27 +466,26 @@ class LearningCoordinator:
         status = self.baseline_status()
         if status["duration_hours"] < 6:
             return {"fitted": False, "reason": status["reason"]}
-        specs = {
-            "pv_total": ("pv", "pv.generation_power"),
-            "grid_import_shrdzm": ("grid", "grid.import_power"),
-            "grid_export_shrdzm": ("grid", "grid.export_power"),
-            "grid_import_victron": ("grid_victron", "grid.import_power"),
-            "grid_export_victron": ("grid_victron", "grid.export_power"),
-            "battery_soc": ("battery", "battery.soc"),
-            "battery_charge": ("battery", "battery.charge_power"),
-            "battery_discharge": ("battery", "battery.discharge_power"),
+        points_by_kind = {
+            "PV": ["pv.generation_power"],
+            "PV_INVERTER": ["pv.generation_power", "power.electrical"],
+            "PV_INPUT": ["pv.generation_power"],
+            "GRID": ["grid.import_power", "grid.export_power"],
+            "GRID_METER": ["grid.import_power", "grid.export_power"],
+            "ELECTRIC_METER": ["grid.import_power", "grid.export_power"],
+            "BATTERY": ["battery.soc", "battery.charge_power", "battery.discharge_power"],
         }
         fit = {}
-        for name, (component, point) in specs.items():
-            rows = self.historian.numeric_series(self.site_id, component, point, limit=50000)
-            values = [r["value"] for r in rows]
-            if values:
-                fit[name] = {
-                    "samples": len(values),
-                    "minimum": min(values),
-                    "maximum": max(values),
-                    "mean": sum(values)/len(values),
-                }
+        for component, kind in self.component_kinds.items():
+            for point in points_by_kind.get(kind, []):
+                rows = self.historian.numeric_series(self.site_id, component, point, limit=50000)
+                values = [r["value"] for r in rows]
+                if values:
+                    fit[f"{component}.{point}"] = {
+                        "component": component, "kind": kind, "point": point,
+                        "samples": len(values), "minimum": min(values),
+                        "maximum": max(values), "mean": sum(values) / len(values),
+                    }
         try:
             model = self.models.get("electrical-baseline")
         except ValueError:
@@ -495,7 +494,7 @@ class LearningCoordinator:
         model.metadata["electrical_fit"] = fit
         model.metadata.pop("fit", None)
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
-        model.reason = "Passive electrical/provider baseline; no control authority."
+        model.reason = "Passive SiteGraph-based electrical baseline; no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "fit": fit}
 
