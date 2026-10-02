@@ -36,6 +36,7 @@ class LearningCoordinator:
         self.models = models
         self.autonomy = autonomy
         self.policies: dict[str, ReadinessPolicy] = {}
+        self.component_kinds: dict[str, str] = {}
 
     def restore(self) -> None:
         for row in self.historian.load_models():
@@ -63,6 +64,7 @@ class LearningCoordinator:
 
     def ensure_baseline_models(self, site: SiteConfig) -> None:
         """Register observation-only V1 models from the configured SiteGraph."""
+        self.component_kinds = {c.id: c.kind for c in site.components}
         existing = {m.id for m in self.models.all()}
         kinds = {c.kind for c in site.components}
         definitions = [
