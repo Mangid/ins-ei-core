@@ -500,6 +500,7 @@ class LearningCoordinator:
 
 
     def fit_battery_behavior_baseline(self) -> dict:
+        """Learn vendor-neutral battery behavior split into charge/discharge/idle states."""
         status = self.baseline_status()
         if status["duration_hours"] < 6:
             return {"fitted": False, "reason": status["reason"]}
@@ -519,6 +520,13 @@ class LearningCoordinator:
                     total += ((max(0.0, a["value"]) + max(0.0, b["value"])) / 2.0) * dt_h
             return total
 
+        def nearest(rows, ts, max_age_s=45):
+            if not rows:
+                return None
+            best = min(rows, key=lambda r: abs((datetime.fromisoformat(r["observed_at"]) - ts).total_seconds()))
+            age = abs((datetime.fromisoformat(best["observed_at"]) - ts).total_seconds())
+            return best if age <= max_age_s else None
+
         per_battery = {}
         for battery, kind in self.component_kinds.items():
             if kind != "BATTERY":
@@ -528,25 +536,57 @@ class LearningCoordinator:
             discharge = self.historian.numeric_series(self.site_id, battery, "battery.discharge_power", limit=50000)
             voltage = self.historian.numeric_series(self.site_id, battery, "electrical.voltage_dc", limit=50000)
             current = self.historian.numeric_series(self.site_id, battery, "electrical.current_dc", limit=50000)
+
+            state_samples = {"CHARGING": [], "DISCHARGING": [], "IDLE": []}
+            soc_rates = {"CHARGING": [], "DISCHARGING": [], "IDLE": []}
+            threshold_w = 100.0
+            for row in soc:
+                ts = datetime.fromisoformat(row["observed_at"])
+                ch = nearest(charge, ts)
+                dis = nearest(discharge, ts)
+                ch_w = max(0.0, ch["value"]) if ch else 0.0
+                dis_w = max(0.0, dis["value"]) if dis else 0.0
+                state = "CHARGING" if ch_w > threshold_w and ch_w >= dis_w else ("DISCHARGING" if dis_w > threshold_w else "IDLE")
+                state_samples[state].append({"soc": row["value"], "power_w": max(ch_w, dis_w), "observed_at": row["observed_at"]})
+
+            for state, rows in state_samples.items():
+                for a, b in zip(rows, rows[1:]):
+                    ta, tb = datetime.fromisoformat(a["observed_at"]), datetime.fromisoformat(b["observed_at"])
+                    dt_h = (tb - ta).total_seconds() / 3600.0
+                    if 0 < dt_h <= 0.25:
+                        soc_rates[state].append((b["soc"] - a["soc"]) / dt_h)
+
+            states = {}
+            for state, rows in state_samples.items():
+                powers = [x["power_w"] for x in rows]
+                rates = soc_rates[state]
+                states[state] = {
+                    "samples": len(rows),
+                    "mean_power_w": (sum(powers) / len(powers)) if powers else None,
+                    "max_power_w": max(powers) if powers else None,
+                    "mean_soc_rate_pct_per_h": (sum(rates) / len(rates)) if rates else None,
+                    "rate_samples": len(rates),
+                }
+
             fit = {
                 "soc": stats(soc), "voltage_dc": stats(voltage), "current_dc": stats(current),
                 "charge_power": stats(charge), "discharge_power": stats(discharge),
                 "observed_charge_wh": integrate_wh(charge), "observed_discharge_wh": integrate_wh(discharge),
+                "states": states, "state_threshold_w": threshold_w,
             }
             if soc:
                 fit["observed_soc_span_pct"] = max(x["value"] for x in soc) - min(x["value"] for x in soc)
-            if any(v["samples"] for k, v in fit.items() if isinstance(v, dict) and "samples" in v):
+            if any(v["samples"] for v in (fit["soc"], fit["charge_power"], fit["discharge_power"])):
                 per_battery[battery] = fit
 
         try:
             model = self.models.get("battery-baseline")
         except ValueError:
             return {"fitted": False, "reason": "battery-baseline model missing"}
-        model.metadata["phase"] = "BATTERY_BEHAVIOR_BASELINE"
+        model.metadata["phase"] = "BATTERY_BEHAVIOR_V2"
         model.metadata["battery_fit"] = per_battery
-        model.metadata.pop("fit", None)
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
-        model.reason = "Passive SiteGraph-based battery behavior baseline; no control authority."
+        model.reason = "Passive battery behavior V2 split into charging, discharging and idle contexts; no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "fit": per_battery}
 
