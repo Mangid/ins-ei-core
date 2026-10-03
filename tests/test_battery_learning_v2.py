@@ -35,3 +35,26 @@ def test_battery_v2_segments_states_from_sitegraph_kind():
     assert fit["states"]["IDLE"]["samples"] == 1
     assert fit["states"]["CHARGING"]["mean_soc_rate_pct_per_h"] > 0
     assert fit["states"]["DISCHARGING"]["mean_soc_rate_pct_per_h"] < 0
+
+
+class HTransition(H):
+    def numeric_series(self, site, component, point, limit=50000):
+        base=datetime(2026,1,1,tzinfo=timezone.utc)
+        def rows(vals): return [{"observed_at":(base+timedelta(minutes=i*5)).isoformat(),"value":v} for i,v in enumerate(vals)]
+        data={
+          # Idle appears before and after a charge phase. V2 incorrectly bridged
+          # the two idle samples and attributed the +10 pct transition to IDLE.
+          "battery.soc": rows([50,50,55,60,60]),
+          "battery.charge_power": rows([0,1000,1000,1000,0]),
+          "battery.discharge_power": rows([0,0,0,0,0]),
+        }
+        return data.get(point,[])
+
+
+def test_battery_v21_does_not_bridge_same_state_across_transition():
+    c=LearningCoordinator("s",HTransition(),Models(),SimpleNamespace())
+    c.component_kinds={"battery":"BATTERY"}
+    fit=c.fit_battery_behavior_baseline()["fit"]["battery"]
+    assert fit["states"]["IDLE"]["samples"] == 2
+    assert fit["states"]["IDLE"]["rate_samples"] == 0
+    assert fit["states"]["IDLE"]["mean_soc_rate_pct_per_h"] is None
