@@ -306,14 +306,78 @@ class LearningCoordinator:
                 ),
             }
 
+        # Power-to-Heat V2: learn response by actual electrical power and
+        # starting buffer temperature instead of treating every active period equally.
+        p2h_v2_samples = []
+        for i, a in enumerate(buffer_rows):
+            ta = datetime.fromisoformat(a["observed_at"])
+            b = None
+            for candidate in buffer_rows[i+1:]:
+                dt_s = (datetime.fromisoformat(candidate["observed_at"]) - ta).total_seconds()
+                if 300 <= dt_s <= 900:
+                    b = candidate
+                    break
+                if dt_s > 900:
+                    break
+            if b is None:
+                continue
+            tb = datetime.fromisoformat(b["observed_at"])
+            p2h = nearest(p2h_rows, tb)
+            pellet = nearest(pellet_rows, tb)
+            if p2h is None or p2h <= 100.0 or (pellet is not None and pellet > 1.0):
+                continue
+            dt_h = (tb - ta).total_seconds() / 3600.0
+            rate = (b["value"] - a["value"]) / dt_h
+            outdoor = nearest(outdoor_rows, tb, 600)
+            power_band = (
+                "0_3KW" if p2h < 3000 else
+                "3_6KW" if p2h < 6000 else
+                "6_9KW"
+            )
+            temp = float(a["value"])
+            temp_band = (
+                "LT45C" if temp < 45 else
+                "45_55C" if temp < 55 else
+                "55_65C" if temp < 65 else
+                "GE65C"
+            )
+            p2h_v2_samples.append({
+                "power_w": p2h, "start_buffer_c": temp, "rate_c_per_h": rate,
+                "outdoor_c": outdoor, "power_band": power_band, "temp_band": temp_band,
+            })
+
+        p2h_v2 = {}
+        grouped = {}
+        for sample in p2h_v2_samples:
+            key = f"{sample['power_band']}__{sample['temp_band']}"
+            grouped.setdefault(key, []).append(sample)
+        for key, samples in grouped.items():
+            rates = sorted(x["rate_c_per_h"] for x in samples)
+            trim = int(len(rates) * 0.025) if len(rates) >= 40 else 0
+            robust = rates[trim:len(rates)-trim] if trim and len(rates) > 2 * trim else rates
+            outdoors = [x["outdoor_c"] for x in samples if x["outdoor_c"] is not None]
+            powers = [x["power_w"] for x in samples]
+            p2h_v2[key] = {
+                "samples": len(samples),
+                "robust_samples": len(robust),
+                "mean_power_w": sum(powers) / len(powers),
+                "mean_start_buffer_c": sum(x["start_buffer_c"] for x in samples) / len(samples),
+                "mean_delta_c_per_h": sum(robust) / len(robust),
+                "median_delta_c_per_h": robust[len(robust)//2],
+                "p025_delta_c_per_h": robust[0],
+                "p975_delta_c_per_h": robust[-1],
+                "mean_outdoor_c": sum(outdoors) / len(outdoors) if outdoors else None,
+            }
+
         try:
             model = self.models.get("thermal-baseline")
         except ValueError:
             return {"fitted": False, "reason": "thermal-baseline model missing"}
-        model.metadata["phase"] = "THERMAL_CONTEXT_BASELINE"
+        model.metadata["phase"] = "POWER_TO_HEAT_V2"
         model.metadata["thermal_context_fit"] = fit
+        model.metadata["power_to_heat_v2_fit"] = p2h_v2
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
-        model.reason = "Context-separated passive thermal baseline; no control authority."
+        model.reason = "Thermal baseline with Power-to-Heat V2 power/temperature contexts; no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "contexts": fit}
 
