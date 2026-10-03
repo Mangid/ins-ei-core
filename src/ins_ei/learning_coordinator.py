@@ -540,6 +540,7 @@ class LearningCoordinator:
             state_samples = {"CHARGING": [], "DISCHARGING": [], "IDLE": []}
             soc_rates = {"CHARGING": [], "DISCHARGING": [], "IDLE": []}
             threshold_w = 100.0
+            classified = []
             for row in soc:
                 ts = datetime.fromisoformat(row["observed_at"])
                 ch = nearest(charge, ts)
@@ -547,14 +548,20 @@ class LearningCoordinator:
                 ch_w = max(0.0, ch["value"]) if ch else 0.0
                 dis_w = max(0.0, dis["value"]) if dis else 0.0
                 state = "CHARGING" if ch_w > threshold_w and ch_w >= dis_w else ("DISCHARGING" if dis_w > threshold_w else "IDLE")
-                state_samples[state].append({"soc": row["value"], "power_w": max(ch_w, dis_w), "observed_at": row["observed_at"]})
+                sample = {"state": state, "soc": row["value"], "power_w": max(ch_w, dis_w), "observed_at": row["observed_at"]}
+                classified.append(sample)
+                state_samples[state].append(sample)
 
-            for state, rows in state_samples.items():
-                for a, b in zip(rows, rows[1:]):
-                    ta, tb = datetime.fromisoformat(a["observed_at"]), datetime.fromisoformat(b["observed_at"])
-                    dt_h = (tb - ta).total_seconds() / 3600.0
-                    if 0 < dt_h <= 0.25:
-                        soc_rates[state].append((b["soc"] - a["soc"]) / dt_h)
+            # Rates are valid only across adjacent original SOC observations that
+            # remain in the same state. A CHARGING/DISCHARGING transition must
+            # never be bridged merely because filtered samples share a label.
+            for a, b in zip(classified, classified[1:]):
+                if a["state"] != b["state"]:
+                    continue
+                ta, tb = datetime.fromisoformat(a["observed_at"]), datetime.fromisoformat(b["observed_at"])
+                dt_h = (tb - ta).total_seconds() / 3600.0
+                if 0 < dt_h <= 0.25:
+                    soc_rates[a["state"]].append((b["soc"] - a["soc"]) / dt_h)
 
             states = {}
             for state, rows in state_samples.items():
@@ -583,10 +590,10 @@ class LearningCoordinator:
             model = self.models.get("battery-baseline")
         except ValueError:
             return {"fitted": False, "reason": "battery-baseline model missing"}
-        model.metadata["phase"] = "BATTERY_BEHAVIOR_V2"
+        model.metadata["phase"] = "BATTERY_BEHAVIOR_V2_1"
         model.metadata["battery_fit"] = per_battery
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
-        model.reason = "Passive battery behavior V2 split into charging, discharging and idle contexts; no control authority."
+        model.reason = "Passive battery behavior V2.1 using contiguous charging, discharging and idle sequences; no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "fit": per_battery}
 
