@@ -28,6 +28,7 @@ pre{white-space:pre-wrap;font-size:12px;background:#0d1117;border:1px solid var(
 <button class="active" data-page="overview">Übersicht</button>
 <button data-page="site">Anlage</button>
 <button data-page="plugins">Plugins</button>
+<button data-page="signals">Signale</button>
 <button data-page="learning">Lernen</button>
 <button data-page="optimization">Optimierung</button>
 <button data-page="tariffs">Tarife</button>
@@ -42,6 +43,8 @@ pre{white-space:pre-wrap;font-size:12px;background:#0d1117;border:1px solid var(
 
 <section id="plugins" class="page"><h1>Plugins</h1><p class="lead">Installierte Fähigkeiten und Geräteadapter.</p><div class="card"><table><thead><tr><th>Plugin</th><th>Version</th><th>Capabilities</th></tr></thead><tbody id="pluginRows"></tbody></table></div></section>
 
+<section id="signals" class="page"><h1>Signale</h1><p class="lead">Aktuelle Core-Punkte für Inbetriebnahme und Diagnose.</p><div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><input id="signalFilter" placeholder="Komponente oder Punkt filtern" oninput="renderSignals()" style="min-width:280px;background:#0d1117;color:#fff;border:1px solid #36404d;border-radius:9px;padding:8px"><select id="qualityFilter" onchange="renderSignals()" style="background:#0d1117;color:#fff;border:1px solid #36404d;border-radius:9px;padding:8px"><option value="">Alle Qualitäten</option><option>GOOD</option><option>STALE</option><option>BAD</option></select></div><table><thead><tr><th>Komponente</th><th>Punkt</th><th>Wert</th><th>Einheit</th><th>Qualität</th><th>Alter</th><th>Quelle</th></tr></thead><tbody id="signalRows"></tbody></table></div></section>
+
 <section id="learning" class="page"><h1>Lernen</h1><p class="lead">Was INS-EI über diese Anlage gelernt hat – getrennt nach Modellen.</p><div class="grid"><div class="card"><div class="label">Phase</div><div id="learnPhase" class="big">…</div></div><div class="card"><div class="label">Historie</div><div id="learnHours" class="big">…</div><div id="learnSamples"></div></div></div><div class="card"><table><thead><tr><th>Modell</th><th>Status</th><th>Phase</th><th>Letzter Fit</th><th>Begründung</th></tr></thead><tbody id="modelRows"></tbody></table></div><div class="card" style="margin-top:14px"><h2>Gelernte Ergebnisse</h2><p class="muted">Persistierte Modellwerte aus dem letzten Fit. Reine Beobachtung – keine Steuerfreigabe.</p><div id="learningDetails"></div></div></section>
 
 <section id="optimization" class="page"><h1>Optimierung</h1><p class="lead">Autonomie, Entscheidungen und Freigaben. Physische Aktionen bleiben Default-Deny.</p><div class="card"><h2>Capability Autonomy</h2><table><thead><tr><th>Capability</th><th>Modus</th><th>Ausführung</th><th>Grund</th></tr></thead><tbody id="autonomyRows"></tbody></table></div><div class="card" style="margin-top:14px"><h2>Strategy Snapshot</h2><button onclick="evaluateStrategy()">Jetzt auswerten</button><pre id="strategyResult">Noch nicht ausgewertet.</pre></div></section>
@@ -55,8 +58,10 @@ function api(path){const b=window.location.pathname.endsWith('/')?window.locatio
 async function j(path,opts){const r=await fetch(api(path),opts);const t=await r.text();if(!r.ok)throw new Error('HTTP '+r.status+' '+t.slice(0,120));return t?JSON.parse(t):{}}
 function statusClass(v){return ['OK','RUNNING','AUTONOMOUS','READY'].includes(String(v).toUpperCase())?'ok':['FAILED','DEGRADED','ERROR'].includes(String(v).toUpperCase())?'bad':'warn'}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.page).classList.add('active')})
+let currentSignals=[];
+function renderSignals(){const q=(signalFilter?.value||'').toLowerCase(),quality=qualityFilter?.value||'';signalRows.innerHTML=currentSignals.filter(x=>(!q||((x.component_id+' '+x.point).toLowerCase().includes(q)))&&(!quality||String(x.quality).toUpperCase()===quality)).sort((a,b)=>(a.component_id+a.point).localeCompare(b.component_id+b.point)).map(x=>'<tr><td>'+x.component_id+'</td><td>'+x.point+'</td><td>'+String(x.value)+'</td><td>'+(x.unit==null?'–':x.unit)+'</td><td class="'+statusClass(x.quality)+'">'+x.quality+'</td><td>'+Math.round(x.age_seconds||0)+' s</td><td>'+(((x.source||{}).plugin_instance)||'–')+'</td></tr>').join('')}
 async function refreshAll(){
- const [h,s,lm,ls,a,p,b]=await Promise.allSettled([j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/plugins'),j('/bus/status')]);
+ const [h,s,lm,ls,a,p,b,st]=await Promise.allSettled([j('/health'),j('/safety'),j('/learning/models'),j('/learning/status'),j('/autonomy'),j('/plugins'),j('/bus/status'),j('/state')]);
  if(h.status==='fulfilled'){const x=h.value;health.textContent=x.status;health.className='big '+statusClass(x.status);healthDetail.textContent=x.site||'';siteTop.textContent=x.site||'';healthPlugins.innerHTML=Object.entries(x.plugins||{}).map(([k,v])=>'<tr><td>'+k+'</td><td class="'+statusClass(v.status)+'">'+v.status+'</td><td>'+(v.last_read_age_seconds==null?'–':Math.round(v.last_read_age_seconds)+' s')+'</td></tr>').join('')}
  if(s.status==='fulfilled'){const x=s.value;const t=x.emergency_stop?'NOT-AUS AKTIV':'Freigegeben';safety.textContent=systemSafety.textContent=t;safety.className=systemSafety.className='big '+(x.emergency_stop?'bad':'ok');safetyReason.textContent=systemSafetyReason.textContent=x.reason||''}
  if(ls.status==='fulfilled'){const x=ls.value;learningSummary.textContent=learnPhase.textContent=x.phase||'–';learnHours.textContent=(x.duration_hours||0).toFixed(1)+' h';learnSamples.textContent=(x.samples||0)+' Samples · '+(x.signals||0)+' Signale';learningDetail.textContent=learnSamples.textContent}
@@ -64,6 +69,7 @@ async function refreshAll(){
  if(a.status==='fulfilled'){const xs=a.value.capabilities||[];autonomyCount.textContent=xs.length;autonomyRows.innerHTML=xs.map(x=>'<tr><td>'+x.capability+'</td><td class="'+statusClass(x.mode)+'">'+x.mode+'</td><td>'+(x.assessment&&x.assessment.allowed?'EXECUTE':'BLOCK')+'</td><td>'+(x.reason||'–')+'</td></tr>').join('')}
  if(p.status==='fulfilled'){pluginRows.innerHTML=(p.value.plugins||[]).map(x=>'<tr><td>'+x.id+'</td><td>'+(x.version||'–')+'</td><td>'+((x.capabilities||[]).map(c=>'<span class="pill">'+(typeof c==='string'?c:(c.id||c.name||JSON.stringify(c)))+'</span>').join('')||'–')+'</td></tr>').join('')}
  if(b.status==='fulfilled'){const x=b.value;bus.textContent=x.enabled?(x.connected?'VERBUNDEN':'GETRENNT'):'DEAKTIVIERT';bus.className='big '+(x.connected?'ok':x.enabled?'bad':'warn');busDetail.textContent=(x.host||'–')+':'+(x.port||'–')}
+ if(st.status==='fulfilled'){currentSignals=st.value.points||[];renderSignals()}
 }
 async function evaluateStrategy(){strategyResult.textContent='Auswertung…';try{strategyResult.textContent=JSON.stringify(await j('/strategy/evaluate',{method:'POST'}),null,2)}catch(e){strategyResult.textContent=String(e)}}
 async function publishBus(){try{await j('/bus/publish',{method:'POST'});refreshAll()}catch(e){alert(e)}}
