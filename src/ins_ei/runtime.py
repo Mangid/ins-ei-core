@@ -224,7 +224,7 @@ class Runtime:
         self.historian.record_points(self.site.site.id, points, self.context_version)
         # Observation-only fits are cheap and persist their latest summary.
         # Buffer State V1 intentionally uses only commissioned observable sensors/topology.
-        self.learning.fit_buffer_state_v1()
+        self.learning.fit_buffer_state_v2()
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()

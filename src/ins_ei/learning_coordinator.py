@@ -443,6 +443,105 @@ class LearningCoordinator:
         return {"fitted": True, "buffers": result}
 
 
+    def fit_buffer_state_v2(self) -> dict:
+        """Learn multi-sensor buffer response by observed SiteGraph operating context."""
+        v1 = self.fit_buffer_state_v1()
+        if not v1.get("fitted"):
+            return v1
+
+        def series(component, point):
+            return self.historian.numeric_series(self.site_id, component, point, limit=20000)
+
+        def nearest(rows, ts, max_age_s=120):
+            if not rows:
+                return None
+            best = min(rows, key=lambda r: abs((datetime.fromisoformat(r["observed_at"]) - ts).total_seconds()))
+            age = abs((datetime.fromisoformat(best["observed_at"]) - ts).total_seconds())
+            return best["value"] if age <= max_age_s else None
+
+        result = {}
+        for buffer_id, meta in v1["buffers"].items():
+            sensor_series = {p: series(buffer_id, s["point"]) for p, s in meta["sensors"].items() if s["samples"]}
+            if not sensor_series:
+                continue
+            driver_series = {}
+            for x in meta["incoming"] + meta["outgoing"]:
+                cid, kind = x["component"], x["kind"]
+                candidates = (
+                    ["power.electrical"] if kind == "POWER_TO_HEAT" else
+                    ["power.modulation", "state.burner"] if kind == "HEAT_GENERATOR" else
+                    ["state.pump", "state.operating"] if kind in {"HEATING_CIRCUIT", "DHW"} else []
+                )
+                driver_series[cid] = {p: series(cid, p) for p in candidates}
+
+            contexts = {}
+            reference_position = next((p for p in ("TOP","UPPER_MIDDLE","LOWER_MIDDLE","BOTTOM") if p in sensor_series), None)
+            rows = sensor_series[reference_position]
+            for i, a in enumerate(rows):
+                ta = datetime.fromisoformat(a["observed_at"])
+                b = None
+                for candidate in rows[i+1:]:
+                    dt_s = (datetime.fromisoformat(candidate["observed_at"]) - ta).total_seconds()
+                    if 300 <= dt_s <= 900:
+                        b = candidate; break
+                    if dt_s > 900: break
+                if b is None:
+                    continue
+                tb = datetime.fromisoformat(b["observed_at"])
+                dt_h = (tb-ta).total_seconds()/3600.0
+                labels, drivers = [], {}
+                for x in meta["incoming"] + meta["outgoing"]:
+                    cid, kind = x["component"], x["kind"]
+                    ds = driver_series.get(cid, {})
+                    if kind == "POWER_TO_HEAT":
+                        val = nearest(ds.get("power.electrical", []), tb)
+                        active = val is not None and val > 100
+                        labels.append(f"{cid}={'ON' if active else 'OFF'}")
+                        drivers[cid] = {"kind": kind, "active": active, "power_w": val}
+                    elif kind == "HEAT_GENERATOR":
+                        mod = nearest(ds.get("power.modulation", []), tb)
+                        burner = nearest(ds.get("state.burner", []), tb)
+                        active = (mod is not None and mod > 1) or burner in {True, 1, "true", "on", "ON"}
+                        labels.append(f"{cid}={'ON' if active else 'OFF'}")
+                        drivers[cid] = {"kind": kind, "active": active, "modulation": mod}
+                    elif kind in {"HEATING_CIRCUIT", "DHW"}:
+                        pump = nearest(ds.get("state.pump", []), tb)
+                        active = pump in {True, 1, "true", "on", "ON"}
+                        labels.append(f"{cid}={'ON' if active else 'OFF'}")
+                        drivers[cid] = {"kind": kind, "active": active}
+                key = "__".join(labels) if labels else "NO_DRIVERS"
+                item = contexts.setdefault(key, {"samples": 0, "sensor_rates": {}, "drivers": drivers})
+                item["samples"] += 1
+                for position, srows in sensor_series.items():
+                    av = nearest(srows, ta, 45); bv = nearest(srows, tb, 45)
+                    if av is None or bv is None:
+                        continue
+                    item["sensor_rates"].setdefault(position, []).append((bv-av)/dt_h)
+
+            summarized = {}
+            for key, item in contexts.items():
+                sensor_rates = {}
+                for position, rates in item["sensor_rates"].items():
+                    ordered = sorted(rates)
+                    sensor_rates[position] = {
+                        "samples": len(rates),
+                        "mean_delta_c_per_h": sum(rates)/len(rates),
+                        "median_delta_c_per_h": ordered[len(ordered)//2],
+                        "minimum_delta_c_per_h": ordered[0],
+                        "maximum_delta_c_per_h": ordered[-1],
+                    }
+                summarized[key] = {"samples": item["samples"], "drivers": item["drivers"], "sensor_rates": sensor_rates}
+            result[buffer_id] = {"observability": meta["observability"], "contexts": summarized}
+
+        model = self.models.get("thermal-baseline")
+        model.metadata["buffer_state_v2_fit"] = result
+        model.metadata["phase"] = "BUFFER_STATE_V2"
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        model.reason = "Buffer State V2 learns observed multi-sensor response by SiteGraph operating context; no unmeasured heat flow and no control authority."
+        self.historian.save_model(model)
+        return {"fitted": True, "buffers": result}
+
+
     def fit_dhw_baseline(self) -> dict:
         status = self.baseline_status()
         if status["duration_hours"] < 6:
