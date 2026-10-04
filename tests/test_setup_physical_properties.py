@@ -3,8 +3,10 @@ from pathlib import Path
 def test_setup_configures_four_canonical_buffer_sensor_positions():
     src=Path("src/ins_ei/setup_web.py").read_text()
     assert "temperature_sensor_positions" in src
-    for pos in ("TOP","UPPER_MIDDLE","LOWER_MIDDLE","BOTTOM"):
-        assert "data-buffer-sensor-pos=\\\"'+pos+'\\\"" in src
+    assert 'sensorRow(\'TOP\',\'Fühlerposition 1 · TOP\')' in src
+    assert 'sensorRow(\'UPPER_MIDDLE\',\'Fühlerposition 2 · UPPER MIDDLE\')' in src
+    assert 'sensorRow(\'LOWER_MIDDLE\',\'Fühlerposition 3 · LOWER MIDDLE\')' in src
+    assert 'sensorRow(\'BOTTOM\',\'Fühlerposition 4 · BOTTOM\')' in src
     assert "– nicht vorhanden –" in src
     assert 'data-component-prop="temperature_sensor_count"' not in src
     assert 'data-component-text-prop="temperature_sensor_layout"' not in src
