@@ -37,6 +37,8 @@ class LearningCoordinator:
         self.autonomy = autonomy
         self.policies: dict[str, ReadinessPolicy] = {}
         self.component_kinds: dict[str, str] = {}
+        self.component_properties: dict[str, dict] = {}
+        self.site_relations: list[dict] = []
 
     def restore(self) -> None:
         for row in self.historian.load_models():
@@ -65,6 +67,8 @@ class LearningCoordinator:
     def ensure_baseline_models(self, site: SiteConfig) -> None:
         """Register observation-only V1 models from the configured SiteGraph."""
         self.component_kinds = {c.id: c.kind for c in site.components}
+        self.component_properties = {c.id: dict(c.properties) for c in site.components}
+        self.site_relations = list(site.relations)
         existing = {m.id for m in self.models.all()}
         kinds = {c.kind for c in site.components}
         definitions = [
@@ -380,6 +384,63 @@ class LearningCoordinator:
         model.reason = "Thermal baseline with Power-to-Heat V2 power/temperature contexts; no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "contexts": fit}
+
+
+    def fit_buffer_state_v1(self) -> dict:
+        """Learn observed buffer state and topology context without inventing heat flows."""
+        status = self.baseline_status()
+        if status["duration_hours"] < 6:
+            return {"fitted": False, "reason": status["reason"]}
+        buffers = [cid for cid, kind in self.component_kinds.items() if kind == "BUFFER"]
+        result = {}
+        for buffer_id in buffers:
+            props = self.component_properties.get(buffer_id, {})
+            configured = props.get("temperature_sensor_positions") or {}
+            sensors = {}
+            for position, point in configured.items():
+                rows = self.historian.numeric_series(self.site_id, buffer_id, point, limit=20000)
+                values = [r["value"] for r in rows]
+                sensors[position] = {
+                    "point": point, "samples": len(values),
+                    "minimum_c": min(values) if values else None,
+                    "maximum_c": max(values) if values else None,
+                    "mean_c": (sum(values) / len(values)) if values else None,
+                }
+
+            incoming, outgoing = [], []
+            for rel in self.site_relations:
+                if rel.get("to") == buffer_id and rel.get("type") in {"HEATS", "CHARGES"}:
+                    incoming.append({"component": rel.get("from"), "relation": rel.get("type"),
+                                     "kind": self.component_kinds.get(rel.get("from"))})
+                if rel.get("from") == buffer_id and rel.get("type") in {"SUPPLIES", "HEATS"}:
+                    outgoing.append({"component": rel.get("to"), "relation": rel.get("type"),
+                                     "kind": self.component_kinds.get(rel.get("to"))})
+
+            observed_positions = [p for p in ("TOP","UPPER_MIDDLE","LOWER_MIDDLE","BOTTOM") if p in sensors and sensors[p]["samples"]]
+            coverage = len(observed_positions) / 4.0
+            observability = "FULL" if coverage == 1 else ("PARTIAL" if coverage >= 0.5 else ("LIMITED" if coverage > 0 else "NONE"))
+            result[buffer_id] = {
+                "volume_l": props.get("volume_l"),
+                "observed_positions": observed_positions,
+                "observability": observability,
+                "coverage_fraction": coverage,
+                "sensors": sensors,
+                "incoming": incoming,
+                "outgoing": outgoing,
+                "energy_content_claimed": False,
+                "note": "State model uses observed temperatures/topology only; no unmeasured thermal power is invented.",
+            }
+
+        try:
+            model = self.models.get("thermal-baseline")
+        except ValueError:
+            return {"fitted": False, "reason": "thermal-baseline model missing"}
+        model.metadata["buffer_state_v1_fit"] = result
+        model.metadata["phase"] = "BUFFER_STATE_V1"
+        model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
+        model.reason = "Buffer State V1 from commissioned sensor positions and SiteGraph topology; no energy-content claim and no control authority."
+        self.historian.save_model(model)
+        return {"fitted": True, "buffers": result}
 
 
     def fit_dhw_baseline(self) -> dict:
