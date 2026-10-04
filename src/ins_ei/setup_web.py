@@ -254,14 +254,26 @@ function renderDiscovered(){{
         '<label>Nennkapazität (kWh)</label><input type="number" step="0.1" data-component-prop="capacity_nominal_kwh" data-component-id="'+x.id+'" value="'+(p.capacity_nominal_kwh??'')+'">'+
       '</div>';
     }}
-    if(x.kind==='BUFFER' || x.kind==='DHW'){{
+    if(x.kind==='BUFFER'){{
       const p=x.properties||{{}};
-      const defaultSensors=x.kind==='BUFFER'?2:1;
+      const sp=p.temperature_sensor_positions||{{}};
+      const pointOptions=['','thermal.temperature_upper','thermal.temperature_lower','thermal.temperature','thermal.temperature_bottom'];
+      const sensorRow=(key,label)=>'<label>'+label+'</label><select data-buffer-sensor-pos="'+key+'" data-component-id="'+x.id+'">'+
+        pointOptions.map(v=>'<option value="'+v+'" '+(sp[key]===v?'selected':'')+'>'+(v||'– nicht vorhanden –')+'</option>').join('')+'</select>';
       extra='<div class="card" style="margin:8px 0 14px 20px">'+
-        '<b>Physische Speicherdaten</b><br><small>Installateurbestätigte Anlagendaten – nicht aus API-Duplikaten ableiten.</small>'+
-        '<label>Speicherinhalt (Liter)</label><input type="number" step="1" min="1" data-component-prop="volume_l" data-component-id="'+x.id+'" value="'+(p.volume_l??'')+'">'+
-        '<label>Anzahl real vorhandener Temperaturfühler</label><input type="number" step="1" min="1" max="10" data-component-prop="temperature_sensor_count" data-component-id="'+x.id+'" value="'+(p.temperature_sensor_count??defaultSensors)+'">'+
-        '<label>Fühlerbeschreibung</label><input type="text" data-component-text-prop="temperature_sensor_layout" data-component-id="'+x.id+'" value="'+(p.temperature_sensor_layout||'')+'" placeholder="'+(x.kind==='BUFFER'?'z. B. oben, unten':'z. B. ein Fühler / oben')+'">'+
+        '<b>Physische Speicherdaten</b><br><small>Nur tatsächlich von INS-EI lesbare Fühler zuordnen.</small>'+
+        '<label>Speicherinhalt (Liter, optional)</label><input type="number" step="1" min="1" data-component-prop="volume_l" data-component-id="'+x.id+'" value="'+(p.volume_l??'')+'">'+
+        sensorRow('TOP','Fühlerposition 1 · TOP')+
+        sensorRow('UPPER_MIDDLE','Fühlerposition 2 · UPPER MIDDLE')+
+        sensorRow('LOWER_MIDDLE','Fühlerposition 3 · LOWER MIDDLE')+
+        sensorRow('BOTTOM','Fühlerposition 4 · BOTTOM')+
+      '</div>';
+    }}
+    if(x.kind==='DHW'){{
+      const p=x.properties||{{}};
+      extra='<div class="card" style="margin:8px 0 14px 20px">'+
+        '<b>Physische Speicherdaten</b><br><small>WW-Speicher wird separat konfiguriert; keine zusätzlichen Fühler aus API-Duplikaten ableiten.</small>'+
+        '<label>Speicherinhalt (Liter, optional)</label><input type="number" step="1" min="1" data-component-prop="volume_l" data-component-id="'+x.id+'" value="'+(p.volume_l??'')+'">'+
       '</div>';
     }}
     if(x.kind==='HEAT_GENERATOR'){{
@@ -288,10 +300,12 @@ function renderDiscovered(){{
     if(!component)return; component.properties=component.properties||{{}};
     component.properties[el.dataset.componentProp]=el.value?Number(el.value):null;
   }}));
-  document.querySelectorAll('[data-component-text-prop]').forEach(el=>el.addEventListener('change',()=>{{
+  document.querySelectorAll('[data-buffer-sensor-pos]').forEach(el=>el.addEventListener('change',()=>{{
     const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
     if(!component)return; component.properties=component.properties||{{}};
-    component.properties[el.dataset.componentTextProp]=el.value||null;
+    component.properties.temperature_sensor_positions=component.properties.temperature_sensor_positions||{{}};
+    if(el.value) component.properties.temperature_sensor_positions[el.dataset.bufferSensorPos]=el.value;
+    else delete component.properties.temperature_sensor_positions[el.dataset.bufferSensorPos];
   }}));
   document.querySelectorAll('[data-pv-prop]').forEach(el=>el.addEventListener('change',()=>{{
     const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
