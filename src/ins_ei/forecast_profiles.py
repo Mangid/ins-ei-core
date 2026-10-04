@@ -75,5 +75,5 @@ def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timez
 def publish_forecast(timeseries, consumption: dict, pv: dict):
     now=datetime.now().astimezone()
     for name,data in (("forecast.consumption_energy",consumption),("forecast.pv_energy",pv)):
-        slots=[TimeSlot(series=name,start=x["start"],end=x["start"]+timedelta(hours=1),value=round(x["kwh"],3),unit="kWh",quality=Quality.GOOD if x["quality"]=="GOOD" else Quality.ESTIMATED,generated_at=now,source=data["model"],metadata={"quality":x["quality"],"samples":x["samples"],"source":x["source"]}) for x in data["slots"]]
+        slots=[TimeSlot(series=name,start=x["start"],end=x["start"]+timedelta(hours=1),value=round(x["kwh"],3),unit="kWh",quality=Quality.GOOD,generated_at=now,source=data["model"],metadata={"quality":x["quality"],"samples":x["samples"],"source":x["source"]}) for x in data["slots"]]
         timeseries.replace(name,slots)
