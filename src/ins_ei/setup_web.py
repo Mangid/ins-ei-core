@@ -254,6 +254,23 @@ function renderDiscovered(){{
         '<label>Nennkapazität (kWh)</label><input type="number" step="0.1" data-component-prop="capacity_nominal_kwh" data-component-id="'+x.id+'" value="'+(p.capacity_nominal_kwh??'')+'">'+
       '</div>';
     }}
+    if(x.kind==='BUFFER' || x.kind==='DHW'){{
+      const p=x.properties||{{}};
+      const defaultSensors=x.kind==='BUFFER'?2:1;
+      extra='<div class="card" style="margin:8px 0 14px 20px">'+
+        '<b>Physische Speicherdaten</b><br><small>Installateurbestätigte Anlagendaten – nicht aus API-Duplikaten ableiten.</small>'+
+        '<label>Speicherinhalt (Liter)</label><input type="number" step="1" min="1" data-component-prop="volume_l" data-component-id="'+x.id+'" value="'+(p.volume_l??'')+'">'+
+        '<label>Anzahl real vorhandener Temperaturfühler</label><input type="number" step="1" min="1" max="10" data-component-prop="temperature_sensor_count" data-component-id="'+x.id+'" value="'+(p.temperature_sensor_count??defaultSensors)+'">'+
+        '<label>Fühlerbeschreibung</label><input type="text" data-component-text-prop="temperature_sensor_layout" data-component-id="'+x.id+'" value="'+(p.temperature_sensor_layout||'')+'" placeholder="'+(x.kind==='BUFFER'?'z. B. oben, unten':'z. B. ein Fühler / oben')+'">'+
+      '</div>';
+    }}
+    if(x.kind==='HEAT_GENERATOR'){{
+      const p=x.properties||{{}};
+      extra='<div class="card" style="margin:8px 0 14px 20px">'+
+        '<b>Physische Erzeugerdaten</b>'+
+        '<label>Nennleistung (kW)</label><input type="number" step="0.1" min="0" data-component-prop="nominal_power_kw" data-component-id="'+x.id+'" value="'+(p.nominal_power_kw??'')+'">'+
+      '</div>';
+    }}
     if(x.kind==='PV_INPUT'){{
       const p=x.properties||{{}};
       extra='<div class="card" style="margin:8px 0 14px 20px">'+
@@ -270,6 +287,11 @@ function renderDiscovered(){{
     const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
     if(!component)return; component.properties=component.properties||{{}};
     component.properties[el.dataset.componentProp]=el.value?Number(el.value):null;
+  }}));
+  document.querySelectorAll('[data-component-text-prop]').forEach(el=>el.addEventListener('change',()=>{{
+    const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
+    if(!component)return; component.properties=component.properties||{{}};
+    component.properties[el.dataset.componentTextProp]=el.value||null;
   }}));
   document.querySelectorAll('[data-pv-prop]').forEach(el=>el.addEventListener('change',()=>{{
     const component=discoveredComponents.find(x=>x.id===el.dataset.componentId);
