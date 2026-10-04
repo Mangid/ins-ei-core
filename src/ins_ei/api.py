@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.responses import HTMLResponse
 
 from .runtime import Runtime
@@ -13,6 +13,7 @@ from .webui import index_html
 from .setup_web import setup_html
 from .setup_api import create_setup_router
 from .setup_store import SetupStore
+from .config import SiteConfig
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -32,6 +33,31 @@ def create_app(runtime: Runtime) -> FastAPI:
             existing_site=setup_store.load() or runtime.site.model_dump(mode="json"),
         )
 
+
+    @app.get("/system/config")
+    def system_config() -> dict:
+        return (setup_store.load() or runtime.site.model_dump(mode="json"))
+
+    @app.post("/system/config/validate")
+    def system_config_validate(payload: dict) -> dict:
+        try:
+            site = SiteConfig.model_validate(payload)
+            if site.api_version != "ins-ei.site/v1":
+                raise ValueError(f"Unsupported site api_version: {site.api_version}")
+            return {"valid": True, "site_id": site.site.id, "components": len(site.components), "relations": len(site.relations)}
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/system/config")
+    def system_config_save(payload: dict) -> dict:
+        try:
+            site = SiteConfig.model_validate(payload)
+            if site.api_version != "ins-ei.site/v1":
+                raise ValueError(f"Unsupported site api_version: {site.api_version}")
+            setup_store.save(site.model_dump(mode="json"))
+            return {"saved": True, "validated": True, "site_id": site.site.id, "restart_required": True}
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/bus/status")
     def bus_status() -> dict:
