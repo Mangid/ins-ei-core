@@ -40,6 +40,8 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
         runtime.learning.fit_electrical_baseline()
         runtime.learning.fit_pv_orientation_baseline()
         runtime.learning.fit_battery_behavior_baseline()
+        runtime.learning.fit_buffer_state_v2()
+        runtime.update_forecasts()
         now = time.monotonic()
         if now - last_bus_publish >= 900:
             runtime.publish_bus_snapshots()
