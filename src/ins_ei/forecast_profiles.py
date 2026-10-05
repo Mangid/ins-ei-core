@@ -23,32 +23,43 @@ def base_load_profile_v4(historian, site_id: str, component_kinds: dict[str,str]
     bats=[c for c,k in component_kinds.items() if k=="BATTERY"]
     p2hs=[c for c,k in component_kinds.items() if k=="POWER_TO_HEAT"]
     if not grids: return {"model":"INS_EI_BASE_LOAD_PROFILE_V4","quality":"LEARNING","slots":[]}
-    grid=historian.numeric_series(site_id,grids[0],"grid.import_power",50000)
-    pv=[historian.numeric_series(site_id,c,"pv.generation_power",50000) for c in pvs]
-    charge=[historian.numeric_series(site_id,c,"battery.charge_power",50000) for c in bats]
-    discharge=[historian.numeric_series(site_id,c,"battery.discharge_power",50000) for c in bats]
-    p2h=[historian.numeric_series(site_id,c,"power.electrical",50000) for c in p2hs]
-    buckets={}; days=set(); rejected=0
-    for row in grid:
-        ts=datetime.fromisoformat(row["observed_at"]).astimezone(tz)
-        pv_w=sum(_nearest(x,ts) or 0 for x in pv); ch=sum(_nearest(x,ts) or 0 for x in charge)
-        dis=sum(_nearest(x,ts) or 0 for x in discharge); ctrl=sum(_nearest(x,ts) or 0 for x in p2h)
-        total=max(0.0,pv_w+row["value"]+dis-ch); base=max(0.0,total-max(0.0,ctrl))
-        if base>5000: rejected+=1; continue
-        buckets.setdefault((ts.weekday(),ts.hour),[]).append(base);days.add(ts.date())
-    allv=[v for xs in buckets.values() for v in xs if v>0]; global_med=median(allv) if allv else 500.0
+
+    def bucket(rows):
+        out={}
+        for r in rows:
+            ts=datetime.fromisoformat(r["observed_at"]).astimezone(tz)
+            key=ts.replace(second=0,microsecond=0)
+            out.setdefault(key,[]).append(float(r["value"]))
+        return {k:sum(v)/len(v) for k,v in out.items()}
+
+    grid_import=bucket(historian.numeric_series(site_id,grids[0],"grid.import_power",50000))
+    grid_export=bucket(historian.numeric_series(site_id,grids[0],"grid.export_power",50000))
+    pv_maps=[bucket(historian.numeric_series(site_id,c,"pv.generation_power",50000)) for c in pvs]
+    ch_maps=[bucket(historian.numeric_series(site_id,c,"battery.charge_power",50000)) for c in bats]
+    dis_maps=[bucket(historian.numeric_series(site_id,c,"battery.discharge_power",50000)) for c in bats]
+    p2h_maps=[bucket(historian.numeric_series(site_id,c,"power.electrical",50000)) for c in p2hs]
+    keys=sorted(grid_import)
+    buckets={};days=set();rejected=0
+    for key in keys:
+        pv_w=sum(x.get(key,0.0) for x in pv_maps)
+        net_grid=grid_import.get(key,0.0)-grid_export.get(key,0.0)
+        ch=sum(x.get(key,0.0) for x in ch_maps);dis=sum(x.get(key,0.0) for x in dis_maps)
+        ctrl=sum(x.get(key,0.0) for x in p2h_maps)
+        total=max(0.0,pv_w+net_grid+dis-ch);base=max(0.0,total-max(0.0,ctrl))
+        if base>5000: rejected+=1;continue
+        buckets.setdefault((key.weekday(),key.hour),[]).append(base);days.add(key.date())
+    allv=[v for xs in buckets.values() for v in xs if v>0];global_med=median(allv) if allv else 500.0
     slots=[]
     for n in range(hours):
         start=now.replace(minute=0,second=0,microsecond=0)+timedelta(hours=n)
-        vals=[v for v in buckets.get((start.weekday(),start.hour),[]) if v>0]
-        source="PROFILE"
+        vals=[v for v in buckets.get((start.weekday(),start.hour),[]) if v>0];source="PROFILE"
         if len(vals)<4: vals=[v for (wd,h),xs in buckets.items() if h==start.hour for v in xs if v>0]
-        if vals: watts=median(vals); quality="GOOD" if len(vals)>=8 else "LEARNING"
+        if vals: watts=median(vals);quality="GOOD" if len(vals)>=8 else "LEARNING"
         else:
             neigh=[v for d in (-2,-1,1,2) for (wd,h),xs in buckets.items() if h==(start.hour+d)%24 for v in xs if v>0]
-            watts=median(neigh) if neigh else global_med; source="NEIGHBOUR_FALLBACK" if neigh else "GLOBAL_FALLBACK";quality="FALLBACK"
+            watts=median(neigh) if neigh else global_med;source="NEIGHBOUR_FALLBACK" if neigh else "GLOBAL_FALLBACK";quality="FALLBACK"
         slots.append({"start":start,"kwh":max(100.0,watts)/1000.0,"samples":len(vals),"quality":quality,"source":source})
-    learned=len(days); q="GOOD" if learned>=21 else ("MEDIUM" if learned>=7 else "LEARNING")
+    learned=len(days);q="GOOD" if learned>=21 else ("MEDIUM" if learned>=7 else "LEARNING")
     return {"model":"INS_EI_BASE_LOAD_PROFILE_V4","quality":q,"learned_days":learned,"rejected_points":rejected,"total_kwh":sum(x["kwh"] for x in slots),"slots":slots}
 
 
