@@ -235,8 +235,11 @@ def create_app(runtime: Runtime) -> FastAPI:
 
     @app.get("/forecast/validation")
     def forecast_validation() -> dict:
-        from .forecast_validation import validate_energy_balance
-        return validate_energy_balance(runtime.historian, runtime.site.site.id, runtime.component_kinds, component_properties=runtime.component_properties)
+        from .forecast_validation import validate_energy_balance, daily_base_diagnostics
+        validation = validate_energy_balance(runtime.historian, runtime.site.site.id, runtime.component_kinds, component_properties=runtime.component_properties)
+        slots = runtime.timeseries.get('forecast.consumption_energy')
+        validation['base_load_diagnostics'] = daily_base_diagnostics(validation, slots)
+        return validation
 
     @app.get("/metrics")
     def metrics() -> dict:
