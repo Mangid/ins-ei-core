@@ -67,6 +67,11 @@ class CentralConfig(BaseModel):
     username: str | None = None
 
 
+class TariffConfig(BaseModel):
+    import_config: dict[str, Any] = Field(default_factory=dict, alias="import")
+    export_config: dict[str, Any] = Field(default_factory=dict, alias="export")
+
+
 class SiteConfig(BaseModel):
     api_version: str
     site: SiteInfo
@@ -77,6 +82,7 @@ class SiteConfig(BaseModel):
     constraints: list[dict[str, Any]] = Field(default_factory=list)
     apps: dict[str, Any] = Field(default_factory=dict)
     central: CentralConfig = Field(default_factory=CentralConfig)
+    tariff: TariffConfig = Field(default_factory=TariffConfig)
     strategy: dict[str, Any] = Field(default_factory=dict)
     site_rules: list[dict[str, Any]] = Field(default_factory=list)
     commissioning: CommissioningConfig = Field(default_factory=CommissioningConfig)

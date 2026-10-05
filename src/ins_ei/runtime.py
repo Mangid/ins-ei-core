@@ -25,6 +25,7 @@ from .thermal_shadow import ThermalShadow
 from .bus import BusClient
 from .secrets import SecretStore
 from .forecast_profiles import base_load_profile_v4, pv_profile_v2, publish_forecast
+from .tariff_forecast import publish_site_tariffs
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -230,11 +231,14 @@ class Runtime:
         consumption = base_load_profile_v4(
             self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
         )
+        location = self.site.site.location
         pv = pv_profile_v2(
-            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
+            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
+            latitude=location.latitude, longitude=location.longitude
         )
         publish_forecast(self.timeseries, consumption, pv)
-        return {"consumption": consumption, "pv": pv}
+        prices = publish_site_tariffs(self.timeseries, self.site.tariff)
+        return {"consumption": consumption, "pv": pv, "prices": prices}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()

@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from statistics import median
 from zoneinfo import ZoneInfo
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from .models import Quality
 from .timeseries import TimeSlot
@@ -63,8 +66,19 @@ def base_load_profile_v4(historian, site_id: str, component_kinds: dict[str,str]
     return {"model":"INS_EI_BASE_LOAD_PROFILE_V4","quality":q,"learned_days":learned,"rejected_points":rejected,"total_kwh":sum(x["kwh"] for x in slots),"slots":slots}
 
 
-def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24):
-    """Port of learned PV profile V2. Weather attenuation is added by forecast inputs later."""
+def _weather_hours(latitude: float, longitude: float, timezone: str) -> dict:
+    params={"latitude":latitude,"longitude":longitude,"hourly":"cloud_cover,shortwave_radiation","forecast_days":3,"timezone":timezone}
+    url="https://api.open-meteo.com/v1/forecast?"+urlencode(params)
+    with urlopen(Request(url,headers={"User-Agent":"INS-EI-Core/1.0"}),timeout=10) as response:
+        data=json.loads(response.read().decode())
+    hourly=data.get("hourly") or {};out={}
+    for ts,cloud,rad in zip(hourly.get("time",[]),hourly.get("cloud_cover",[]),hourly.get("shortwave_radiation",[])):
+        out[ts]={"cloud_cover":float(cloud or 0),"shortwave_radiation":float(rad or 0)}
+    return out
+
+
+def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24, latitude: float|None=None, longitude: float|None=None):
+    """Learned site PV profile with conservative weather attenuation from legacy V2."""
     tz=ZoneInfo(timezone);now=datetime.now(tz);hours=max(1,min(int(hours),48))
     pvs=[c for c,k in component_kinds.items() if k=="PV"]
     by_hour={};days=set()
@@ -73,14 +87,22 @@ def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timez
         for row in historian.numeric_series(site_id,c,"pv.generation_power",50000):
             ts=datetime.fromisoformat(row["observed_at"]).astimezone(tz)
             by_hour.setdefault(ts.hour,[]).append(max(0.0,row["value"]));days.add(ts.date())
+    weather={}
+    if latitude is not None and longitude is not None:
+        try: weather=_weather_hours(latitude,longitude,timezone)
+        except Exception: weather={}
     slots=[]
     for n in range(hours):
         start=now.replace(minute=0,second=0,microsecond=0)+timedelta(hours=n);vals=by_hour.get(start.hour,[])
-        watts=median(vals) if vals else 0.0
+        learned_w=median(vals) if vals else 0.0
+        wx=weather.get(start.strftime("%Y-%m-%dT%H:%M"));factor=1.0
+        if wx and learned_w>0:
+            cloud=max(0.0,min(100.0,wx["cloud_cover"]));factor=max(0.18,1.0-0.0075*cloud)
+        watts=learned_w*factor
         if watts<50: watts=0.0
-        slots.append({"start":start,"kwh":watts/1000.0,"baseline_kwh":watts/1000.0,"samples":len(vals),"quality":"GOOD" if len(vals)>=12 and len(days)>=7 else "LEARNING","source":"HISTORICAL_PV_PROFILE"})
-    learned=len(days);q="GOOD" if learned>=21 else ("MEDIUM" if learned>=7 else "LEARNING")
-    return {"model":"INS_EI_PV_PROFILE_V2","quality":q,"learned_days":learned,"weather_used":False,"total_kwh":sum(x["kwh"] for x in slots),"slots":slots}
+        slots.append({"start":start,"kwh":watts/1000.0,"baseline_kwh":learned_w/1000.0,"samples":len(vals),"quality":"GOOD" if len(vals)>=12 and len(days)>=7 and wx else "LEARNING","source":"HISTORICAL_PV_PLUS_WEATHER" if wx else "HISTORICAL_PV_PROFILE","cloud_cover_pct":wx["cloud_cover"] if wx else None,"shortwave_radiation_w_m2":wx["shortwave_radiation"] if wx else None,"weather_factor":factor if wx else None})
+    learned=len(days);q="GOOD" if learned>=21 and weather else ("MEDIUM" if learned>=7 and weather else "LEARNING")
+    return {"model":"INS_EI_PV_PROFILE_V2","quality":q,"learned_days":learned,"weather_used":bool(weather),"total_kwh":sum(x["kwh"] for x in slots),"baseline_total_kwh":sum(x["baseline_kwh"] for x in slots),"slots":slots}
 
 
 def publish_forecast(timeseries, consumption: dict, pv: dict):
