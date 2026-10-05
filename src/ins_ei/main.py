@@ -28,22 +28,36 @@ def build_runtime(site_path: str, plugin_dir: str = "plugins", data_dir: str = "
     return runtime
 
 
-def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.Event) -> None:
-    # API/Ingress is already starting when this worker begins. Run expensive
-    # passive analysis here immediately once, then on its normal cadence.
+def _collection_loop(runtime: Runtime, interval_seconds: float, stop: threading.Event) -> None:
     last_strategy = 0.0
-    last_analysis = 0.0
     last_bus_publish = 0.0
-    first_cycle = True
-    while not stop.wait(0 if first_cycle else interval_seconds):
-        first_cycle = False
+    while not stop.wait(interval_seconds):
         runtime.collect_once()
         now = time.monotonic()
         if last_strategy == 0.0 or now - last_strategy >= 60:
             runtime.evaluate_strategy()
             runtime.evaluate_outcomes()
             last_strategy = now
-        if last_analysis == 0.0 or now - last_analysis >= 3600:
+        if last_bus_publish == 0.0 or now - last_bus_publish >= 900:
+            runtime.publish_bus_snapshots()
+            last_bus_publish = now
+
+
+def _forecast_loop(runtime: Runtime, stop: threading.Event) -> None:
+    first = True
+    while not stop.wait(0 if first else 3600):
+        first = False
+        try:
+            runtime.update_forecasts()
+        except Exception:
+            logging.exception("Forecast background update failed")
+
+
+def _learning_loop(runtime: Runtime, stop: threading.Event) -> None:
+    first = True
+    while not stop.wait(0 if first else 3600):
+        first = False
+        try:
             runtime.learning.fit_passive_baselines()
             runtime.learning.fit_thermal_context_baseline()
             runtime.learning.fit_dhw_baseline()
@@ -51,11 +65,8 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
             runtime.learning.fit_pv_orientation_baseline()
             runtime.learning.fit_battery_behavior_baseline()
             runtime.learning.fit_buffer_state_v2()
-            runtime.update_forecasts()
-            last_analysis = now
-        if last_bus_publish == 0.0 or now - last_bus_publish >= 900:
-            runtime.publish_bus_snapshots()
-            last_bus_publish = now
+        except Exception:
+            logging.exception("Learning background update failed")
 
 
 def main() -> None:
@@ -89,18 +100,19 @@ def main() -> None:
         run_setup(args.host, args.port, args.plugins, args.data)
         return
     stop = threading.Event()
-    worker = threading.Thread(
-        target=_background_loop,
-        args=(runtime, max(1.0, args.interval), stop),
-        daemon=True,
-        name="ins-ei-runtime",
-    )
-    worker.start()
+    workers = [
+        threading.Thread(target=_collection_loop, args=(runtime, max(1.0, args.interval), stop), daemon=True, name="ins-ei-collection"),
+        threading.Thread(target=_forecast_loop, args=(runtime, stop), daemon=True, name="ins-ei-forecast"),
+        threading.Thread(target=_learning_loop, args=(runtime, stop), daemon=True, name="ins-ei-learning"),
+    ]
+    for worker in workers:
+        worker.start()
     try:
         uvicorn.run(create_app(runtime), host=args.host, port=args.port)
     finally:
         stop.set()
-        worker.join(timeout=5)
+        for worker in workers:
+            worker.join(timeout=5)
         runtime.stop()
 
 
