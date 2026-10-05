@@ -29,17 +29,21 @@ def build_runtime(site_path: str, plugin_dir: str = "plugins", data_dir: str = "
 
 
 def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.Event) -> None:
+    # API/Ingress is already starting when this worker begins. Run expensive
+    # passive analysis here immediately once, then on its normal cadence.
     last_strategy = 0.0
     last_analysis = 0.0
     last_bus_publish = 0.0
-    while not stop.wait(interval_seconds):
+    first_cycle = True
+    while not stop.wait(0 if first_cycle else interval_seconds):
+        first_cycle = False
         runtime.collect_once()
         now = time.monotonic()
-        if now - last_strategy >= 60:
+        if last_strategy == 0.0 or now - last_strategy >= 60:
             runtime.evaluate_strategy()
             runtime.evaluate_outcomes()
             last_strategy = now
-        if now - last_analysis >= 3600:
+        if last_analysis == 0.0 or now - last_analysis >= 3600:
             runtime.learning.fit_passive_baselines()
             runtime.learning.fit_thermal_context_baseline()
             runtime.learning.fit_dhw_baseline()
@@ -49,7 +53,7 @@ def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.
             runtime.learning.fit_buffer_state_v2()
             runtime.update_forecasts()
             last_analysis = now
-        if now - last_bus_publish >= 900:
+        if last_bus_publish == 0.0 or now - last_bus_publish >= 900:
             runtime.publish_bus_snapshots()
             last_bus_publish = now
 
