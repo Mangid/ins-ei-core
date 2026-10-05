@@ -231,12 +231,14 @@ class Runtime:
     def update_forecasts(self) -> dict:
         """Refresh passive forecasts outside the startup-critical collection path."""
         consumption = base_load_profile_v4(
-            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
+            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
+            component_properties=self.component_properties
         )
         location = self.site.site.location
         pv = pv_profile_v2(
             self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
-            latitude=location.latitude, longitude=location.longitude
+            latitude=location.latitude, longitude=location.longitude,
+            component_properties=self.component_properties
         )
         publish_forecast(self.timeseries, consumption, pv)
         prices = publish_site_tariffs(self.timeseries, self.site.tariff)
