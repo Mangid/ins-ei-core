@@ -26,7 +26,7 @@ from .bus import BusClient
 from .secrets import SecretStore
 from .forecast_profiles import base_load_profile_v4, pv_profile_v2, publish_forecast
 from .tariff_forecast import publish_site_tariffs
-from .forecast_validation import validate_energy_balance
+from .forecast_validation import validate_energy_balance, daily_base_diagnostics
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -86,6 +86,7 @@ class Runtime:
         self._expected_control_state: dict[tuple[str, str], tuple[object, datetime]] = {}
         self.component_kinds = {c.id: c.kind for c in site.components}
         self.component_properties = {c.id: c.properties for c in site.components}
+        self.forecast_validation_cache = self.historian.cache_get(f'{site.site.id}:forecast_validation')
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
@@ -243,6 +244,10 @@ class Runtime:
         publish_forecast(self.timeseries, consumption, pv)
         prices = publish_site_tariffs(self.timeseries, self.site.tariff)
         validation = validate_energy_balance(self.historian, self.site.site.id, self.component_kinds, component_properties=self.component_properties)
+        slots = self.timeseries.get("forecast.consumption_energy")
+        validation["base_load_diagnostics"] = daily_base_diagnostics(validation, slots)
+        self.forecast_validation_cache = validation
+        self.historian.cache_put(f"{self.site.site.id}:forecast_validation", validation)
         return {"consumption": consumption, "pv": pv, "prices": prices, "validation": validation}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
