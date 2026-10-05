@@ -253,7 +253,7 @@ class Runtime:
         prices=run("tariffs",lambda:publish_site_tariffs(self.timeseries,self.site.tariff))
         validation=run("energy_balance",lambda:validate_energy_balance(self.historian,self.site.site.id,self.component_kinds,component_properties=self.component_properties))
         if validation is not None:
-            diag=run("base_load_diagnostics",lambda:daily_base_diagnostics(validation,self.timeseries.get("forecast.consumption_energy")))
+            diag=run("base_load_diagnostics",lambda:daily_base_diagnostics(validation,self.timeseries.series("forecast.consumption_energy")))
             if diag is not None: validation["base_load_diagnostics"]=diag
             self.forecast_validation_cache=validation
             run("cache_write",lambda:self.historian.cache_put(f"{self.site.site.id}:forecast_validation",validation))
