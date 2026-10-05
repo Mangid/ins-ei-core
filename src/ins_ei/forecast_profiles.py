@@ -18,12 +18,20 @@ def _nearest(rows, ts, max_age_s=900):
     return best["value"] if abs((datetime.fromisoformat(best["observed_at"])-ts).total_seconds())<=max_age_s else None
 
 
-def base_load_profile_v4(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24):
+def _balance_components(component_kinds, component_properties, kind, role):
+    candidates=[c for c,k in component_kinds.items() if k==kind]
+    explicit=[c for c in candidates if (component_properties.get(c,{}) or {}).get('forecast_role')==role]
+    if explicit:return explicit
+    return candidates if len(candidates)<=1 else []
+
+
+def base_load_profile_v4(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24, component_properties=None):
     """Port of INS_EI_BASE_LOAD_PROFILE_V4 using local canonical historian data."""
     tz=ZoneInfo(timezone); now=datetime.now(tz); hours=max(1,min(int(hours),48))
-    grids=[c for c,k in component_kinds.items() if k=="GRID"]
-    pvs=[c for c,k in component_kinds.items() if k=="PV"]
-    bats=[c for c,k in component_kinds.items() if k=="BATTERY"]
+    component_properties=component_properties or {}
+    grids=_balance_components(component_kinds,component_properties,"GRID","BALANCE_GRID")
+    pvs=_balance_components(component_kinds,component_properties,"PV","BALANCE_PV")
+    bats=_balance_components(component_kinds,component_properties,"BATTERY","BALANCE_BATTERY")
     p2hs=[c for c,k in component_kinds.items() if k=="POWER_TO_HEAT"]
     if not grids: return {"model":"INS_EI_BASE_LOAD_PROFILE_V4","quality":"LEARNING","slots":[]}
 
@@ -77,10 +85,11 @@ def _weather_hours(latitude: float, longitude: float, timezone: str) -> dict:
     return out
 
 
-def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24, latitude: float|None=None, longitude: float|None=None):
+def pv_profile_v2(historian, site_id: str, component_kinds: dict[str,str], timezone: str, hours: int=24, latitude: float|None=None, longitude: float|None=None, component_properties=None):
     """Learned site PV profile with conservative weather attenuation from legacy V2."""
     tz=ZoneInfo(timezone);now=datetime.now(tz);hours=max(1,min(int(hours),48))
-    pvs=[c for c,k in component_kinds.items() if k=="PV"]
+    component_properties=component_properties or {}
+    pvs=_balance_components(component_kinds,component_properties,"PV","BALANCE_PV")
     by_hour={};days=set()
     # Sum logical PV components per timestamp approximately; use all observations to learn real site geometry.
     for c in pvs:

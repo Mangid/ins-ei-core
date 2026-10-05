@@ -236,7 +236,7 @@ def create_app(runtime: Runtime) -> FastAPI:
     @app.get("/forecast/validation")
     def forecast_validation() -> dict:
         from .forecast_validation import validate_energy_balance
-        return validate_energy_balance(runtime.historian, runtime.site.site.id, runtime.component_kinds)
+        return validate_energy_balance(runtime.historian, runtime.site.site.id, runtime.component_kinds, component_properties=runtime.component_properties)
 
     @app.get("/metrics")
     def metrics() -> dict:
