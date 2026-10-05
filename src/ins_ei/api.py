@@ -233,6 +233,10 @@ def create_app(runtime: Runtime) -> FastAPI:
             }
         }
 
+    @app.get("/forecast/status")
+    def forecast_status() -> dict:
+        return runtime.forecast_worker_status
+
     @app.get("/forecast/validation")
     def forecast_validation() -> dict:
         return runtime.forecast_validation_cache or {"status":"PENDING","hours":0}
