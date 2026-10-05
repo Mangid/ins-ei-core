@@ -85,6 +85,7 @@ class Runtime:
         self._observed_control_state: dict[tuple[str, str], object] = {}
         self._expected_control_state: dict[tuple[str, str], tuple[object, datetime]] = {}
         self.component_kinds = {c.id: c.kind for c in site.components}
+        self.component_properties = {c.id: c.properties for c in site.components}
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
@@ -239,7 +240,7 @@ class Runtime:
         )
         publish_forecast(self.timeseries, consumption, pv)
         prices = publish_site_tariffs(self.timeseries, self.site.tariff)
-        validation = validate_energy_balance(self.historian, self.site.site.id, self.component_kinds)
+        validation = validate_energy_balance(self.historian, self.site.site.id, self.component_kinds, component_properties=self.component_properties)
         return {"consumption": consumption, "pv": pv, "prices": prices, "validation": validation}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
