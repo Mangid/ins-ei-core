@@ -1,7 +1,7 @@
 from pathlib import Path
 def test_startup_collect_once_does_not_fit_models_or_forecasts():
     r=Path("src/ins_ei/runtime.py").read_text()
-    body=r[r.index("    def collect_once"):r.index("    def reload_plugin_type")]
+    body=r[r.index("    def collect_once"):r.index("    def update_forecasts")]
     assert "fit_buffer_state_v2" not in body
     assert "base_load_profile_v4" not in body
     assert "pv_profile_v2" not in body
