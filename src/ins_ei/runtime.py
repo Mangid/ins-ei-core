@@ -87,6 +87,7 @@ class Runtime:
         self.component_kinds = {c.id: c.kind for c in site.components}
         self.component_properties = {c.id: c.properties for c in site.components}
         self.forecast_validation_cache = self.historian.cache_get(f'{site.site.id}:forecast_validation')
+        self.forecast_worker_status = {"status":"IDLE","steps":{}}
 
     def configure(self) -> None:
         for cfg in self.site.plugin_instances:
@@ -230,25 +231,35 @@ class Runtime:
         self.historian.record_points(self.site.site.id, points, self.context_version)
 
     def update_forecasts(self) -> dict:
-        """Refresh passive forecasts outside the startup-critical collection path."""
-        consumption = base_load_profile_v4(
-            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
-            component_properties=self.component_properties
-        )
-        location = self.site.site.location
-        pv = pv_profile_v2(
-            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
-            latitude=location.latitude, longitude=location.longitude,
-            component_properties=self.component_properties
-        )
-        publish_forecast(self.timeseries, consumption, pv)
-        prices = publish_site_tariffs(self.timeseries, self.site.tariff)
-        validation = validate_energy_balance(self.historian, self.site.site.id, self.component_kinds, component_properties=self.component_properties)
-        slots = self.timeseries.get("forecast.consumption_energy")
-        validation["base_load_diagnostics"] = daily_base_diagnostics(validation, slots)
-        self.forecast_validation_cache = validation
-        self.historian.cache_put(f"{self.site.site.id}:forecast_validation", validation)
-        return {"consumption": consumption, "pv": pv, "prices": prices, "validation": validation}
+        """Refresh forecast products; validation failures never discard usable forecasts."""
+        import time
+        status={"status":"RUNNING","steps":{},"started_at":datetime.now().astimezone().isoformat()}
+        self.forecast_worker_status=status
+        def run(name, func):
+            started=time.monotonic()
+            try:
+                value=func()
+                status["steps"][name]={"status":"OK","duration_ms":round((time.monotonic()-started)*1000)}
+                return value
+            except Exception as exc:
+                status["steps"][name]={"status":"ERROR","duration_ms":round((time.monotonic()-started)*1000),"error":f"{type(exc).__name__}: {exc}"}
+                log.exception("forecast step failed | step=%s",name)
+                return None
+        consumption=run("consumption_forecast",lambda:base_load_profile_v4(self.historian,self.site.site.id,self.component_kinds,self.site.site.timezone,component_properties=self.component_properties))
+        location=self.site.site.location
+        pv=run("pv_forecast",lambda:pv_profile_v2(self.historian,self.site.site.id,self.component_kinds,self.site.site.timezone,latitude=location.latitude,longitude=location.longitude,component_properties=self.component_properties))
+        if consumption is not None and pv is not None:
+            run("publish_forecast",lambda:publish_forecast(self.timeseries,consumption,pv))
+        prices=run("tariffs",lambda:publish_site_tariffs(self.timeseries,self.site.tariff))
+        validation=run("energy_balance",lambda:validate_energy_balance(self.historian,self.site.site.id,self.component_kinds,component_properties=self.component_properties))
+        if validation is not None:
+            diag=run("base_load_diagnostics",lambda:daily_base_diagnostics(validation,self.timeseries.get("forecast.consumption_energy")))
+            if diag is not None: validation["base_load_diagnostics"]=diag
+            self.forecast_validation_cache=validation
+            run("cache_write",lambda:self.historian.cache_put(f"{self.site.site.id}:forecast_validation",validation))
+        status["finished_at"]=datetime.now().astimezone().isoformat()
+        status["status"]="ERROR" if any(x["status"]=="ERROR" for x in status["steps"].values()) else "OK"
+        return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"worker":status}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()
