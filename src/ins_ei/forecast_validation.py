@@ -51,3 +51,22 @@ def score_slots(forecast_slots, actual_by_hour):
         f=float(slot.value);a=float(actual_by_hour[key]);errors.append(a-f)
     if not errors:return {"samples":0,"mae_kwh":None,"bias_kwh":None}
     return {"samples":len(errors),"mae_kwh":round(mean(abs(x) for x in errors),3),"bias_kwh":round(mean(errors),3)}
+
+
+def daily_base_diagnostics(validation: dict, forecast_slots: list | None = None) -> dict:
+    """Compare validated historical inflexible load by day with current 24h forecast."""
+    by_day={}
+    for row in validation.get("rows",[]):
+        day=str(row["start"])[:10]
+        by_day[day]=by_day.get(day,0.0)+float(row.get("inflexible_base_kwh",0))
+    days=[{"day":d,"actual_base_kwh":round(v,3)} for d,v in sorted(by_day.items())]
+    complete=[x["actual_base_kwh"] for x in days[:-1] if x["actual_base_kwh"]>0] if len(days)>1 else []
+    current=sum(float(getattr(s,"value",0) or 0) for s in (forecast_slots or [])[:24])
+    avg=mean(complete) if complete else None
+    return {
+        "historical_days":days,
+        "complete_days":len(complete),
+        "historical_daily_mean_kwh":round(avg,3) if avg is not None else None,
+        "current_forecast_24h_kwh":round(current,3),
+        "forecast_vs_history_ratio":round(current/avg,3) if avg else None,
+    }
