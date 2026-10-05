@@ -111,7 +111,7 @@ class Historian:
             CREATE INDEX IF NOT EXISTS idx_model_evidence
               ON model_evidence(site_id, model_id, model_version, occurred_at);
 
-            CREATE TABLE IF NOT EXISTS commands (
+            CREATE TABLE IF NOT EXISTS runtime_cache (\n                cache_key TEXT PRIMARY KEY,\n                updated_at TEXT NOT NULL,\n                payload_json TEXT NOT NULL\n            );\n\n            CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 occurred_at TEXT NOT NULL,
                 site_id TEXT NOT NULL,
@@ -379,6 +379,19 @@ class Historian:
             """, (site_id, model_id, model_version)).fetchall()
         return [dict(row) for row in rows]
 
+    def cache_put(self, key: str, payload: dict[str, Any]) -> None:
+        with self._lock, self._connection() as db:
+            db.execute("""INSERT INTO runtime_cache(cache_key,updated_at,payload_json)
+                VALUES(?,?,?) ON CONFLICT(cache_key) DO UPDATE SET
+                updated_at=excluded.updated_at,payload_json=excluded.payload_json""",
+                (key, datetime.now().astimezone().isoformat(), json.dumps(payload,ensure_ascii=False,default=str)))
+
+    def cache_get(self, key: str) -> dict[str, Any] | None:
+        with self._connection() as db:
+            row=db.execute("SELECT updated_at,payload_json FROM runtime_cache WHERE cache_key=?",(key,)).fetchone()
+        if not row:return None
+        payload=json.loads(row["payload_json"]);payload["_cached_at"]=row["updated_at"];return payload
+
     def correlation(self, site_id: str, correlation_id: str) -> dict[str, Any]:
         with self._connection() as db:
             decision = db.execute(
@@ -398,3 +411,4 @@ class Historian:
             "commands": [dict(row) for row in commands],
             "events": [dict(row) for row in events],
         }
+
