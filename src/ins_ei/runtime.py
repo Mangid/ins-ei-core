@@ -230,8 +230,10 @@ class Runtime:
         consumption = base_load_profile_v4(
             self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
         )
+        location = self.site.site.location
         pv = pv_profile_v2(
-            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
+            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone,
+            latitude=location.latitude, longitude=location.longitude
         )
         publish_forecast(self.timeseries, consumption, pv)
         return {"consumption": consumption, "pv": pv}
