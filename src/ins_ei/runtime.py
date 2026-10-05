@@ -26,6 +26,7 @@ from .bus import BusClient
 from .secrets import SecretStore
 from .forecast_profiles import base_load_profile_v4, pv_profile_v2, publish_forecast
 from .tariff_forecast import publish_site_tariffs
+from .forecast_validation import validate_energy_balance
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -238,7 +239,8 @@ class Runtime:
         )
         publish_forecast(self.timeseries, consumption, pv)
         prices = publish_site_tariffs(self.timeseries, self.site.tariff)
-        return {"consumption": consumption, "pv": pv, "prices": prices}
+        validation = validate_energy_balance(self.historian, self.site.site.id, self.component_kinds)
+        return {"consumption": consumption, "pv": pv, "prices": prices, "validation": validation}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()
