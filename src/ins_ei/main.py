@@ -29,20 +29,26 @@ def build_runtime(site_path: str, plugin_dir: str = "plugins", data_dir: str = "
 
 
 def _background_loop(runtime: Runtime, interval_seconds: float, stop: threading.Event) -> None:
+    last_strategy = 0.0
+    last_analysis = 0.0
     last_bus_publish = 0.0
     while not stop.wait(interval_seconds):
         runtime.collect_once()
-        runtime.evaluate_strategy()
-        runtime.evaluate_outcomes()
-        runtime.learning.fit_passive_baselines()
-        runtime.learning.fit_thermal_context_baseline()
-        runtime.learning.fit_dhw_baseline()
-        runtime.learning.fit_electrical_baseline()
-        runtime.learning.fit_pv_orientation_baseline()
-        runtime.learning.fit_battery_behavior_baseline()
-        runtime.learning.fit_buffer_state_v2()
-        runtime.update_forecasts()
         now = time.monotonic()
+        if now - last_strategy >= 60:
+            runtime.evaluate_strategy()
+            runtime.evaluate_outcomes()
+            last_strategy = now
+        if now - last_analysis >= 3600:
+            runtime.learning.fit_passive_baselines()
+            runtime.learning.fit_thermal_context_baseline()
+            runtime.learning.fit_dhw_baseline()
+            runtime.learning.fit_electrical_baseline()
+            runtime.learning.fit_pv_orientation_baseline()
+            runtime.learning.fit_battery_behavior_baseline()
+            runtime.learning.fit_buffer_state_v2()
+            runtime.update_forecasts()
+            last_analysis = now
         if now - last_bus_publish >= 900:
             runtime.publish_bus_snapshots()
             last_bus_publish = now
