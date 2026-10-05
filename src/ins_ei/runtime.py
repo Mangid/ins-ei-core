@@ -224,10 +224,17 @@ class Runtime:
         points = self.thermal_shadow.evaluate()
         self.state.ingest(points)
         self.historian.record_points(self.site.site.id, points, self.context_version)
-        self.learning.fit_buffer_state_v2()
-        consumption = base_load_profile_v4(self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone)
-        pv = pv_profile_v2(self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone)
+
+    def update_forecasts(self) -> dict:
+        """Refresh passive forecasts outside the startup-critical collection path."""
+        consumption = base_load_profile_v4(
+            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
+        )
+        pv = pv_profile_v2(
+            self.historian, self.site.site.id, self.component_kinds, self.site.site.timezone
+        )
         publish_forecast(self.timeseries, consumption, pv)
+        return {"consumption": consumption, "pv": pv}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()
