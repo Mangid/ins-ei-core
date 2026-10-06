@@ -30,7 +30,7 @@ def create_app(runtime: Runtime) -> FastAPI:
         return setup_html(
             runtime.catalog.installed().values(),
             version="0.1.36",
-            existing_site=setup_store.load() or runtime.site.model_dump(mode="json"),
+            existing_site=setup_store.load() or runtime.site.model_dump(mode="json", by_alias=True),
         )
 
 
@@ -54,7 +54,7 @@ def create_app(runtime: Runtime) -> FastAPI:
             site = SiteConfig.model_validate(payload)
             if site.api_version != "ins-ei.site/v1":
                 raise ValueError(f"Unsupported site api_version: {site.api_version}")
-            setup_store.save(site.model_dump(mode="json"))
+            setup_store.save(site.model_dump(mode="json", by_alias=True))
             return {"saved": True, "validated": True, "site_id": site.site.id, "restart_required": True}
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

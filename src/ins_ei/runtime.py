@@ -240,7 +240,12 @@ class Runtime:
             started=time.monotonic()
             try:
                 value=func()
-                status["steps"][name]={"status":"OK","duration_ms":round((time.monotonic()-started)*1000)}
+                entry={"status":"OK","duration_ms":round((time.monotonic()-started)*1000)}
+                if name=="tariffs" and isinstance(value,dict):
+                    entry["result"]=value
+                    if not value or (value.get("import_slots",0)==0 and value.get("export_slots",0)==0 and not any(str(k).startswith("market.") for k in value)):
+                        entry["status"]="EMPTY"
+                status["steps"][name]=entry
                 return value
             except Exception as exc:
                 status["steps"][name]={"status":"ERROR","duration_ms":round((time.monotonic()-started)*1000),"error":f"{type(exc).__name__}: {exc}"}
@@ -264,7 +269,7 @@ class Runtime:
         if accuracy is not None:
             self.historian.cache_put(f"{self.site.site.id}:forecast_accuracy",accuracy)
         status["finished_at"]=datetime.now().astimezone().isoformat()
-        status["status"]="ERROR" if any(x["status"]=="ERROR" for x in status["steps"].values()) else "OK"
+        status["status"]="ERROR" if any(x["status"]=="ERROR" for x in status["steps"].values()) else ("DEGRADED" if any(x["status"]=="EMPTY" for x in status["steps"].values()) else "OK")
         return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"accuracy":accuracy,"worker":status}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
