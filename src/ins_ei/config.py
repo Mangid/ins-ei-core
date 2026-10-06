@@ -68,6 +68,7 @@ class CentralConfig(BaseModel):
 
 
 class TariffConfig(BaseModel):
+    model_config = {"populate_by_name": True}
     import_config: dict[str, Any] = Field(default_factory=dict, alias="import")
     export_config: dict[str, Any] = Field(default_factory=dict, alias="export")
 
