@@ -111,7 +111,7 @@ class Historian:
             CREATE INDEX IF NOT EXISTS idx_model_evidence
               ON model_evidence(site_id, model_id, model_version, occurred_at);
 
-            CREATE TABLE IF NOT EXISTS runtime_cache (\n                cache_key TEXT PRIMARY KEY,\n                updated_at TEXT NOT NULL,\n                payload_json TEXT NOT NULL\n            );\n\n            CREATE TABLE IF NOT EXISTS commands (
+            CREATE TABLE IF NOT EXISTS forecast_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                site_id TEXT NOT NULL,\n                series TEXT NOT NULL,\n                target_start TEXT NOT NULL,\n                generated_at TEXT NOT NULL,\n                forecast_value REAL NOT NULL,\n                model TEXT,\n                quality TEXT\n            );\n            CREATE INDEX IF NOT EXISTS idx_forecast_snapshots_target ON forecast_snapshots(site_id,series,target_start,generated_at);\n\n            CREATE TABLE IF NOT EXISTS runtime_cache (\n                cache_key TEXT PRIMARY KEY,\n                updated_at TEXT NOT NULL,\n                payload_json TEXT NOT NULL\n            );\n\n            CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 occurred_at TEXT NOT NULL,
                 site_id TEXT NOT NULL,
@@ -378,6 +378,19 @@ class Historian:
                 ORDER BY occurred_at
             """, (site_id, model_id, model_version)).fetchall()
         return [dict(row) for row in rows]
+
+    def record_forecast_slots(self, site_id: str, series: str, slots: Iterable[Any]) -> None:
+        rows=[(site_id,series,s.start.isoformat(),(s.generated_at or datetime.now().astimezone()).isoformat(),float(s.value),s.source,str(s.quality)) for s in slots]
+        if not rows:return
+        with self._lock,self._connection() as db:
+            db.executemany("""INSERT INTO forecast_snapshots(site_id,series,target_start,generated_at,forecast_value,model,quality)
+                VALUES(?,?,?,?,?,?,?)""",rows)
+
+    def forecast_snapshots(self, site_id: str, series: str, since: datetime) -> list[dict[str,Any]]:
+        with self._connection() as db:
+            rows=db.execute("""SELECT * FROM forecast_snapshots WHERE site_id=? AND series=? AND target_start>=?
+                ORDER BY target_start,generated_at""",(site_id,series,since.isoformat())).fetchall()
+        return [dict(r) for r in rows]
 
     def cache_put(self, key: str, payload: dict[str, Any]) -> None:
         with self._lock, self._connection() as db:
