@@ -20,7 +20,10 @@ SERIES = {
     "forecast.pv_energy": SeriesDefinition(
         "forecast.pv_energy", "kWh", "Forecast PV energy produced during the slot."
     ),
-    "forecast.battery_soc": SeriesDefinition(\n        "forecast.battery_soc", "%", "Baseline forecast battery state of charge at end of slot."\n    ),\n    "forecast.consumption_energy": SeriesDefinition(
+    "forecast.battery_soc": SeriesDefinition(
+        "forecast.battery_soc", "%", "Baseline forecast battery state of charge at end of slot."
+    ),
+    "forecast.consumption_energy": SeriesDefinition(
         "forecast.consumption_energy", "kWh", "Forecast site electrical consumption during the slot."
     ),
 }
