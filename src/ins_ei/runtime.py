@@ -27,6 +27,7 @@ from .secrets import SecretStore
 from .forecast_profiles import base_load_profile_v4, pv_profile_v2, publish_forecast
 from .tariff_forecast import publish_site_tariffs
 from .forecast_validation import validate_energy_balance, daily_base_diagnostics
+from .forecast_accuracy import forecast_accuracy
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -250,6 +251,8 @@ class Runtime:
         pv=run("pv_forecast",lambda:pv_profile_v2(self.historian,self.site.site.id,self.component_kinds,self.site.site.timezone,latitude=location.latitude,longitude=location.longitude,component_properties=self.component_properties))
         if consumption is not None and pv is not None:
             run("publish_forecast",lambda:publish_forecast(self.timeseries,consumption,pv))
+            run("snapshot_consumption",lambda:self.historian.record_forecast_slots(self.site.site.id,"forecast.consumption_energy",self.timeseries.series("forecast.consumption_energy")))
+            run("snapshot_pv",lambda:self.historian.record_forecast_slots(self.site.site.id,"forecast.pv_energy",self.timeseries.series("forecast.pv_energy")))
         prices=run("tariffs",lambda:publish_site_tariffs(self.timeseries,self.site.tariff))
         validation=run("energy_balance",lambda:validate_energy_balance(self.historian,self.site.site.id,self.component_kinds,component_properties=self.component_properties))
         if validation is not None:
@@ -257,9 +260,12 @@ class Runtime:
             if diag is not None: validation["base_load_diagnostics"]=diag
             self.forecast_validation_cache=validation
             run("cache_write",lambda:self.historian.cache_put(f"{self.site.site.id}:forecast_validation",validation))
+        accuracy=run("forecast_accuracy",lambda:forecast_accuracy(self.historian,self.site.site.id,self.component_kinds,self.component_properties))
+        if accuracy is not None:
+            self.historian.cache_put(f"{self.site.site.id}:forecast_accuracy",accuracy)
         status["finished_at"]=datetime.now().astimezone().isoformat()
         status["status"]="ERROR" if any(x["status"]=="ERROR" for x in status["steps"].values()) else "OK"
-        return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"worker":status}
+        return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"accuracy":accuracy,"worker":status}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()

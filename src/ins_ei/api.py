@@ -233,6 +233,10 @@ def create_app(runtime: Runtime) -> FastAPI:
             }
         }
 
+    @app.get("/forecast/accuracy")
+    def forecast_accuracy_view() -> dict:
+        return runtime.historian.cache_get(f"{runtime.site.site.id}:forecast_accuracy") or {"status":"LEARNING"}
+
     @app.get("/forecast/status")
     def forecast_status() -> dict:
         return runtime.forecast_worker_status
