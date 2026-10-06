@@ -263,7 +263,7 @@ class Runtime:
         batteries=[x for x in self.site.components if x.kind=="BATTERY" and (x.properties or {}).get("forecast_role")=="BALANCE_BATTERY"]
         if batteries:
             bat=batteries[0];cap=float((bat.properties or {}).get("capacity_nominal_kwh",0) or 0)
-            min_soc=next((float(x.value) for x in self.site.constraints if x.target==bat.id and x.id=="battery_min_soc"),20.0)
+            min_soc=next((float(x.get("value")) for x in self.site.constraints if x.get("target")==bat.id and x.get("id")=="battery_min_soc"),20.0)
             if cap>0: run("soc_forecast",lambda:baseline_soc_forecast(self.timeseries,self.state,bat.id,cap,min_soc))
 
         validation=run("energy_balance",lambda:validate_energy_balance(self.historian,self.site.site.id,self.component_kinds,component_properties=self.component_properties))
