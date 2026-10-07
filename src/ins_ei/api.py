@@ -233,6 +233,10 @@ def create_app(runtime: Runtime) -> FastAPI:
             }
         }
 
+    @app.get("/shadow/decisions")
+    def shadow_decision_view() -> dict:
+        return runtime.historian.cache_get(f"{runtime.site.site.id}:shadow_decision") or {"status":"LEARNING","mode":"OBSERVE_ONLY","slots":[]}
+
     @app.get("/forecast/accuracy")
     def forecast_accuracy_view() -> dict:
         return runtime.historian.cache_get(f"{runtime.site.site.id}:forecast_accuracy") or {"status":"LEARNING"}
