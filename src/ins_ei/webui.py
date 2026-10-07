@@ -32,6 +32,7 @@ pre{white-space:pre-wrap;font-size:12px;background:#0d1117;border:1px solid var(
 <button data-page="signals">Signale</button>
 <button data-page="learning">Lernen</button>
 <button data-page="forecast">Forecast</button>
+<button data-page="shadow">Shadow</button>
 <button data-page="optimization">Optimierung</button>
 <button data-page="tariffs">Tarife</button>
 <button data-page="system">System</button>
