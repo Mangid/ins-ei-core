@@ -28,6 +28,7 @@ from .forecast_profiles import base_load_profile_v4, pv_profile_v2, publish_fore
 from .tariff_forecast import publish_site_tariffs
 from .forecast_validation import validate_energy_balance, daily_base_diagnostics
 from .forecast_accuracy import forecast_accuracy
+from .soc_forecast import baseline_soc_forecast
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -259,6 +260,12 @@ class Runtime:
             run("snapshot_consumption",lambda:self.historian.record_forecast_slots(self.site.site.id,"forecast.consumption_energy",self.timeseries.series("forecast.consumption_energy")))
             run("snapshot_pv",lambda:self.historian.record_forecast_slots(self.site.site.id,"forecast.pv_energy",self.timeseries.series("forecast.pv_energy")))
         prices=run("tariffs",lambda:publish_site_tariffs(self.timeseries,self.site.tariff))
+        batteries=[x for x in self.site.components if x.kind=="BATTERY" and (x.properties or {}).get("forecast_role")=="BALANCE_BATTERY"]
+        if batteries:
+            bat=batteries[0];cap=float((bat.properties or {}).get("capacity_nominal_kwh",0) or 0)
+            min_soc=next((float(x.get("value")) for x in self.site.constraints if x.get("target")==bat.id and x.get("id")=="battery_min_soc"),20.0)
+            if cap>0: run("soc_forecast",lambda:baseline_soc_forecast(self.timeseries,self.state,bat.id,cap,min_soc))
+
         validation=run("energy_balance",lambda:validate_energy_balance(self.historian,self.site.site.id,self.component_kinds,component_properties=self.component_properties))
         if validation is not None:
             diag=run("base_load_diagnostics",lambda:daily_base_diagnostics(validation,self.timeseries.series("forecast.consumption_energy")))
