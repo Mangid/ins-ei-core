@@ -29,6 +29,7 @@ from .tariff_forecast import publish_site_tariffs
 from .forecast_validation import validate_energy_balance, daily_base_diagnostics
 from .forecast_accuracy import forecast_accuracy
 from .soc_forecast import baseline_soc_forecast
+from .shadow_decision import shadow_decisions
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -272,12 +273,14 @@ class Runtime:
             if diag is not None: validation["base_load_diagnostics"]=diag
             self.forecast_validation_cache=validation
             run("cache_write",lambda:self.historian.cache_put(f"{self.site.site.id}:forecast_validation",validation))
+        shadow=run("shadow_decision",lambda:shadow_decisions(self.timeseries))
+        if shadow is not None:self.historian.cache_put(f"{self.site.site.id}:shadow_decision",shadow)
         accuracy=run("forecast_accuracy",lambda:forecast_accuracy(self.historian,self.site.site.id,self.component_kinds,self.component_properties))
         if accuracy is not None:
             self.historian.cache_put(f"{self.site.site.id}:forecast_accuracy",accuracy)
         status["finished_at"]=datetime.now().astimezone().isoformat()
         status["status"]="ERROR" if any(x["status"]=="ERROR" for x in status["steps"].values()) else ("DEGRADED" if any(x["status"]=="EMPTY" for x in status["steps"].values()) else "OK")
-        return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"accuracy":accuracy,"worker":status}
+        return {"consumption":consumption,"pv":pv,"prices":prices,"validation":validation,"shadow":shadow,"accuracy":accuracy,"worker":status}
 
     def reload_plugin_type(self, plugin_id: str) -> None:
         self.catalog.discover()
