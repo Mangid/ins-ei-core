@@ -30,6 +30,7 @@ from .forecast_validation import validate_energy_balance, daily_base_diagnostics
 from .forecast_accuracy import forecast_accuracy
 from .soc_forecast import baseline_soc_forecast
 from .shadow_decision import shadow_decisions
+from .thermal_guard import thermal_guard
 
 log = logging.getLogger("ins_ei.runtime")
 
@@ -273,7 +274,8 @@ class Runtime:
             if diag is not None: validation["base_load_diagnostics"]=diag
             self.forecast_validation_cache=validation
             run("cache_write",lambda:self.historian.cache_put(f"{self.site.site.id}:forecast_validation",validation))
-        shadow=run("shadow_decision",lambda:shadow_decisions(self.timeseries))
+        guard=run("thermal_guard",lambda:thermal_guard(self.state,self.site))
+        shadow=run("shadow_decision",lambda:shadow_decisions(self.timeseries,guard))
         if shadow is not None:self.historian.cache_put(f"{self.site.site.id}:shadow_decision",shadow)
         accuracy=run("forecast_accuracy",lambda:forecast_accuracy(self.historian,self.site.site.id,self.component_kinds,self.component_properties))
         if accuracy is not None:
