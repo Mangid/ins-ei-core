@@ -8,4 +8,4 @@ def test_buffer_state_v2_uses_topology_drivers_and_all_observed_positions():
     assert '"HEATING_CIRCUIT", "DHW"' in src
     assert 'item["sensor_rates"].setdefault(position, []).append' in src
     assert 'model.metadata["buffer_state_v2_fit"] = result' in src
-    assert 'model.metadata["phase"] = "BUFFER_STATE_V2"' in src
+    assert 'model.metadata["phase"] = "BUFFER_STATE_V2_1"' in src

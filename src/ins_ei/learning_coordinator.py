@@ -452,6 +452,21 @@ class LearningCoordinator:
         def series(component, point):
             return self.historian.numeric_series(self.site_id, component, point, limit=20000)
 
+        def truthy(value):
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return value != 0
+            text = str(value or "").strip().lower()
+            return text in {"true","1","on","ein","yes","ja","running","active","aktiv"}
+
+        def text_series(component, point):
+            # Historian numeric_series intentionally excludes textual ÖkoFEN states.
+            # Use generic observations when available so pump/state context is retained.
+            if hasattr(self.historian, "series"):
+                return self.historian.series(self.site_id, component, point, limit=20000)
+            return []
+
         def nearest(rows, ts, max_age_s=120):
             if not rows:
                 return None
@@ -472,7 +487,7 @@ class LearningCoordinator:
                     ["power.modulation", "state.burner"] if kind == "HEAT_GENERATOR" else
                     ["state.pump", "state.operating"] if kind in {"HEATING_CIRCUIT", "DHW"} else []
                 )
-                driver_series[cid] = {p: series(cid, p) for p in candidates}
+                driver_series[cid] = {p: (text_series(cid, p) if p.startswith("state.") else series(cid, p)) for p in candidates}
 
             contexts = {}
             reference_position = next((p for p in ("TOP","UPPER_MIDDLE","LOWER_MIDDLE","BOTTOM") if p in sensor_series), None)
@@ -506,12 +521,19 @@ class LearningCoordinator:
                         drivers[cid] = {"kind": kind, "active": active, "modulation": mod}
                     elif kind in {"HEATING_CIRCUIT", "DHW"}:
                         pump = nearest(ds.get("state.pump", []), tb)
-                        active = pump in {True, 1, "true", "on", "ON"}
+                        operating = nearest(ds.get("state.operating", []), tb)
+                        active = truthy(pump)
+                        if pump is None and operating is not None:
+                            active = any(token in str(operating).lower() for token in ("heizbetrieb aktiv","ladung aktiv","pumpe ein","active","running"))
                         labels.append(f"{cid}={'ON' if active else 'OFF'}")
                         drivers[cid] = {"kind": kind, "active": active}
                 key = "__".join(labels) if labels else "NO_DRIVERS"
-                item = contexts.setdefault(key, {"samples": 0, "sensor_rates": {}, "drivers": drivers})
+                item = contexts.setdefault(key, {"samples": 0, "sensor_rates": {}, "driver_values": {}})
                 item["samples"] += 1
+                for cid, driver in drivers.items():
+                    agg=item["driver_values"].setdefault(cid, {"kind": driver["kind"], "power_w": [], "modulation": []})
+                    if driver.get("power_w") is not None: agg["power_w"].append(float(driver["power_w"]))
+                    if driver.get("modulation") is not None: agg["modulation"].append(float(driver["modulation"]))
                 for position, srows in sensor_series.items():
                     av = nearest(srows, ta, 45); bv = nearest(srows, tb, 45)
                     if av is None or bv is None:
@@ -530,14 +552,21 @@ class LearningCoordinator:
                         "minimum_delta_c_per_h": ordered[0],
                         "maximum_delta_c_per_h": ordered[-1],
                     }
-                summarized[key] = {"samples": item["samples"], "drivers": item["drivers"], "sensor_rates": sensor_rates}
+                drivers = {}
+                for cid, agg in item["driver_values"].items():
+                    d={"kind":agg["kind"]}
+                    for name, values in (("power_w",agg["power_w"]),("modulation",agg["modulation"])):
+                        if values:
+                            d[name]={"samples":len(values),"mean":sum(values)/len(values),"minimum":min(values),"maximum":max(values)}
+                    drivers[cid]=d
+                summarized[key] = {"samples": item["samples"], "drivers": drivers, "sensor_rates": sensor_rates}
             result[buffer_id] = {"observability": meta["observability"], "contexts": summarized}
 
         model = self.models.get("thermal-baseline")
         model.metadata["buffer_state_v2_fit"] = result
-        model.metadata["phase"] = "BUFFER_STATE_V2"
+        model.metadata["phase"] = "BUFFER_STATE_V2_1"
         model.metadata["last_fit_at"] = datetime.now().astimezone().isoformat()
-        model.reason = "Buffer State V2 learns observed multi-sensor response by SiteGraph operating context; no unmeasured heat flow and no control authority."
+        model.reason = "Buffer State V2.1 learns observed multi-sensor response by SiteGraph operating context; no unmeasured heat flow and no control authority."
         self.historian.save_model(model)
         return {"fitted": True, "buffers": result}
 
